@@ -17,5 +17,5 @@ if [ "x$1" != "xforce" ]; then
 fi
 
 sudo docker build -t "$DOCKER_TAG:$HAPROXY_MINOR" .
-sudo docker tag -f "$DOCKER_TAG:$HAPROXY_MINOR" "$DOCKER_TAG:latest"
+sudo docker tag "$DOCKER_TAG:$HAPROXY_MINOR" "$DOCKER_TAG:latest"
 sudo docker push "$DOCKER_TAG"
