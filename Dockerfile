@@ -11,7 +11,7 @@ LABEL RUN /usr/bin/docker -d IMAGE
 ENV HAPROXY_BRANCH 1.7
 ENV HAPROXY_MINOR 1.7.5
 ENV HAPROXY_MD5 ed84c80cb97852d2aa3161ed16c48a1c
-ENV HAPROXY_SRC_URL http://www.haproxy.org/download/
+ENV HAPROXY_SRC_URL http://www.haproxy.org/download
 
 ENV HAPROXY_UID haproxy
 ENV HAPROXY_GID haproxy
@@ -31,6 +31,7 @@ RUN apt-get update && \
                             all install-bin install-man && \
     ln -s /usr/local/sbin/haproxy /usr/sbin/haproxy && \
     mkdir -p /var/lib/haproxy && \
+    chown "$HAPROXY_UID:$HAPROXY_GID" /var/lib/haproxy && \
     rm -rf /tmp/haproxy && \
     apt-get purge -y --auto-remove gcc make libc6-dev libssl-dev libpcre3-dev zlib1g-dev && \
     apt-get clean
