@@ -16,6 +16,7 @@ if [ "x$1" != "xforce" ]; then
     fi
 fi
 
-sudo docker build -t "$DOCKER_TAG:$HAPROXY_MINOR" .
-sudo docker tag "$DOCKER_TAG:$HAPROXY_MINOR" "$DOCKER_TAG:latest"
-sudo docker push "$DOCKER_TAG"
+docker pull $(awk '/^FROM/ {print $2}' Dockerfile)
+docker build -t "$DOCKER_TAG:$HAPROXY_MINOR" .
+docker tag "$DOCKER_TAG:$HAPROXY_MINOR" "$DOCKER_TAG:latest"
+docker push "$DOCKER_TAG"
