@@ -4,6 +4,7 @@ set -e
 DOCKER_TAG="haproxytech/haproxy-ubuntu"
 HAPROXY_BRANCHES="1.6 1.7 1.8"
 HAPROXY_CURRENT_BRANCH="1.7"
+PUSH="no"
 
 for i in $HAPROXY_BRANCHES; do
     echo "Building HAProxy $i"
@@ -19,7 +20,11 @@ for i in $HAPROXY_BRANCHES; do
         if [ "x$HAPROXY_MINOR_OLD" = "x$HAPROXY_MINOR" ]; then
             echo "No new releases, not building $i branch"
             continue
+        else
+            PUSH="yes"
         fi
+    else
+        PUSH="yes"
     fi
 
     docker pull $(awk '/^FROM/ {print $2}' "$DOCKERFILE")
@@ -30,4 +35,6 @@ for i in $HAPROXY_BRANCHES; do
     fi
 done
 
-docker push "$DOCKER_TAG"
+if [ "x$PUSH" = "xyes" ]; then
+    docker push "$DOCKER_TAG"
+fi
