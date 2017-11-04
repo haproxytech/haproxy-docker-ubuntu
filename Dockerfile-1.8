@@ -5,12 +5,12 @@ MAINTAINER Dinko Korunic <dkorunic@haproxy.com>
 LABEL Name HAProxy OSS
 LABEL Release OSS Edition
 LABEL Vendor HAProxy
-LABEL Version 1.8-dev3
+LABEL Version 1.8-rc2
 LABEL RUN /usr/bin/docker -d IMAGE
 
 ENV HAPROXY_BRANCH 1.8
-ENV HAPROXY_MINOR 1.8-dev3
-ENV HAPROXY_MD5 ea800f08a611b6ac6fffe5595f1a8366
+ENV HAPROXY_MINOR 1.8-rc2
+ENV HAPROXY_MD5 03f3f9e118debadf8a54813a2d95ac8b
 ENV HAPROXY_SRC_URL http://www.haproxy.org/download
 
 ENV HAPROXY_UID haproxy
@@ -19,7 +19,7 @@ ENV HAPROXY_GID haproxy
 RUN apt-get update && \
     apt-get install -y libssl1.0.0 zlib1g libpcre3 tar curl socat && \
     apt-get install -y gcc make libc6-dev libssl-dev libpcre3-dev zlib1g-dev && \
-    curl -sfSL "$HAPROXY_SRC_URL/$HAPROXY_BRANCH/src/devel/haproxy-$HAPROXY_MINOR.tar.gz" -o haproxy.tar.gz && \
+    curl -sfSL "$HAPROXY_SRC_URL/$HAPROXY_BRANCH/src/haproxy-$HAPROXY_MINOR.tar.gz" -o haproxy.tar.gz && \
     echo "$HAPROXY_MD5  haproxy.tar.gz" | md5sum -c - && \
     groupadd "$HAPROXY_GID" && \
     useradd -g "$HAPROXY_GID" "$HAPROXY_UID" && \
