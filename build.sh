@@ -2,8 +2,8 @@
 set -e
 
 DOCKER_TAG="haproxytech/haproxy-ubuntu"
-HAPROXY_BRANCHES="1.6 1.7 1.8 1.9"
-HAPROXY_CURRENT_BRANCH="1.8"
+HAPROXY_BRANCHES="1.6 1.7 1.8 1.9 2.0"
+HAPROXY_CURRENT_BRANCH="1.9"
 PUSH="no"
 
 for i in $HAPROXY_BRANCHES; do
