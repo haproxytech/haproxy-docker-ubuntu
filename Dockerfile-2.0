@@ -28,6 +28,7 @@ RUN apt-get update && \
     rm -f haproxy.tar.gz && \
     make -C /tmp/haproxy TARGET=linux2628 CPU=generic USE_PCRE=1 USE_REGPARM=1 USE_OPENSSL=1 \
                             USE_ZLIB=1 USE_TFO=1 USE_LINUX_TPROXY=1 USE_LUA=1 \
+                            EXTRA_OBJS="contrib/prometheus-exporter/service-prometheus.o" \
                             all install-bin install-man && \
     ln -s /usr/local/sbin/haproxy /usr/sbin/haproxy && \
     mkdir -p /var/lib/haproxy && \
