@@ -1,9 +1,26 @@
 #!/bin/sh
 set -e
 
-HAPROXY_BRANCH=${1:-2.0}
-DOCKERFILE=Dockerfile-$HAPROXY_BRANCH
-HAPROXY_SRC_URL=http://www.haproxy.org/download
+if test -z "$1"; then
+	echo "Missing branch as first argument"
+	exit 1
+fi
+
+if ! test -d "$1"; then
+	echo "Cannot find $1 dedicated directory"
+	exit 1
+fi
+
+cd "$1"
+
+HAPROXY_BRANCH="$1"
+DOCKERFILE="Dockerfile"
+HAPROXY_SRC_URL="http://www.haproxy.org/download"
+
+if ! test -f "$DOCKERFILE"; then
+	echo "Cannot find $DOCKERFILE"
+	exit 1
+fi
 
 HAPROXY_MINOR=$(curl -sfSL "$HAPROXY_SRC_URL/$HAPROXY_BRANCH/src/" 2>/dev/null | \
     grep -o "<a href=\"haproxy-$HAPROXY_BRANCH.*\.tar\.gz\">" | \

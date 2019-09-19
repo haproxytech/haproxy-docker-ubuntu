@@ -1,2 +1,0 @@
-#!/bin/bash
-exec socat READLINE /var/lib/haproxy/stats
