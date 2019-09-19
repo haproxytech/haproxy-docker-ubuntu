@@ -73,3 +73,4 @@ cat README_short.md >> README.md
 
 git commit -a -m "Automated commit triggered by $HAPROXY_UPDATED release(s)"
 git push
+git push --tags
