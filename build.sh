@@ -22,13 +22,10 @@ for i in $HAPROXY_BRANCHES; do
         if [ "$HAPROXY_MINOR_OLD" = "$HAPROXY_MINOR" ]; then
             echo "No new releases, not building $i branch"
             continue
-        else
-            PUSH="yes"
         fi
-    else
-        PUSH="yes"
     fi
 
+    PUSH="yes"
     HAPROXY_UPDATED="$HAPROXY_UPDATED $HAPROXY_MINOR"
 
     docker pull $(awk '/^FROM/ {print $2}' "$DOCKERFILE")
@@ -42,31 +39,34 @@ for i in $HAPROXY_BRANCHES; do
 
     docker run -it --rm "$DOCKER_TAG:$HAPROXY_MINOR" /usr/local/sbin/haproxy -c -f /usr/local/etc/haproxy/haproxy.cfg
 
-    git tag -d "$HAPROXY_MINOR" || true
+    if git rev-parse "$HAPROXY_MINOR" >/dev/null 2>&1; then
+        git tag -d "$HAPROXY_MINOR" || true
+        git push origin ":$HAPROXY_MINOR" || true
+    fi
     git tag "$HAPROXY_MINOR"
 done
 
 if [ "$PUSH" = "no" ]; then
-	exit 0
+        exit 0
 fi
 
 echo "# Supported tags and respective \`Dockerfile\` links\n" > README.md
 for i in $(awk '/^ENV HAPROXY_MINOR/ {print $NF}' */Dockerfile| sort -n -r); do
-	short=$(echo $i | cut -d. -f1-2 |cut -d- -f1)
-	if [ "$short" = "$HAPROXY_CURRENT_BRANCH" ]; then
-		if [ "$short" = "$i" ]; then
-			final="-\t[\`$i\`, \`latest\`]($HAPROXY_GITHUB_URL/$short/Dockerfile)"
-		else
-			final="-\t[\`$i\`, \`$short\`, \`latest\`]($HAPROXY_GITHUB_URL/$short/Dockerfile)"
-		fi
-	else
-		if [ "$short" = "$i" ]; then
-			final="-\t[\`$i\`]($HAPROXY_GITHUB_URL/$short/Dockerfile)"
-		else
-			final="-\t[\`$i\`, \`$short\`]($HAPROXY_GITHUB_URL/$short/Dockerfile)"
-		fi
-	fi
-	echo "$final" >> README.md
+        short=$(echo $i | cut -d. -f1-2 |cut -d- -f1)
+        if [ "$short" = "$HAPROXY_CURRENT_BRANCH" ]; then
+                if [ "$short" = "$i" ]; then
+                        final="-\t[\`$i\`, \`latest\`]($HAPROXY_GITHUB_URL/$short/Dockerfile)"
+                else
+                        final="-\t[\`$i\`, \`$short\`, \`latest\`]($HAPROXY_GITHUB_URL/$short/Dockerfile)"
+                fi
+        else
+                if [ "$short" = "$i" ]; then
+                        final="-\t[\`$i\`]($HAPROXY_GITHUB_URL/$short/Dockerfile)"
+                else
+                        final="-\t[\`$i\`, \`$short\`]($HAPROXY_GITHUB_URL/$short/Dockerfile)"
+                fi
+        fi
+        echo "$final" >> README.md
 done
 echo >> README.md
 cat README_short.md >> README.md
