@@ -1,11 +1,12 @@
 #!/bin/sh
 set -e
 
-DOCKER_TAG="haproxytech/haproxy-ubuntu-wip"
+DOCKER_TAG="haproxytech/haproxy-ubuntu"
+HAPROXY_GITHUB_URL="https://github.com/haproxytech/haproxy-docker-ubuntu/blob/master"
 HAPROXY_BRANCHES="1.5 1.6 1.7 1.8 1.9 2.0 2.1"
 HAPROXY_CURRENT_BRANCH="2.0"
 PUSH="no"
-HAPROXY_GITHUB_URL="https://github.com/haproxytech/haproxy-docker-ubuntu/blob/master"
+HAPROXY_UPDATED=""
 
 for i in $HAPROXY_BRANCHES; do
     echo "Building HAProxy $i"
@@ -18,7 +19,7 @@ for i in $HAPROXY_BRANCHES; do
     HAPROXY_MINOR=$(awk '/^ENV HAPROXY_MINOR/ {print $NF}' "$DOCKERFILE")
 
     if [ "x$1" != "xforce" ]; then
-        if [ "x$HAPROXY_MINOR_OLD" = "x$HAPROXY_MINOR" ]; then
+        if [ "$HAPROXY_MINOR_OLD" = "$HAPROXY_MINOR" ]; then
             echo "No new releases, not building $i branch"
             continue
         else
@@ -28,24 +29,26 @@ for i in $HAPROXY_BRANCHES; do
         PUSH="yes"
     fi
 
+    HAPROXY_UPDATED="$HAPROXY_UPDATED $HAPROXY_MINOR"
+
     docker pull $(awk '/^FROM/ {print $2}' "$DOCKERFILE")
 
     docker build -t "$DOCKER_TAG:$HAPROXY_MINOR" "$i"
     docker tag "$DOCKER_TAG:$HAPROXY_MINOR" "$DOCKER_TAG:$i"
 
-    if [ "x$i" = "x$HAPROXY_CURRENT_BRANCH" ]; then
+    if [ "$i" = "$HAPROXY_CURRENT_BRANCH" ]; then
         docker tag "$DOCKER_TAG:$HAPROXY_MINOR" "$DOCKER_TAG:latest"
     fi
 
     docker run -it --rm "$DOCKER_TAG:$HAPROXY_MINOR" /usr/local/sbin/haproxy -c -f /usr/local/etc/haproxy/haproxy.cfg
 
-    cd "$OLDPATH"
+    git tag -d "$HAPROXY_MINOR" || true
+    git tag "$HAPROXY_MINOR"
 done
 
-#if [ "x$PUSH" = "xyes" ]; then
-#    docker push "$DOCKER_TAG"
-#fi
-
+if [ "$PUSH" = "no" ]; then
+	exit 0
+fi
 
 echo "# Supported tags and respective \`Dockerfile\` links\n" > README.md
 for i in $(awk '/^ENV HAPROXY_MINOR/ {print $NF}' */Dockerfile| sort -n -r); do
@@ -67,3 +70,6 @@ for i in $(awk '/^ENV HAPROXY_MINOR/ {print $NF}' */Dockerfile| sort -n -r); do
 done
 echo >> README.md
 cat README_short.md >> README.md
+
+git commit -a -m "Automated commit triggered by $HAPROXY_UPDATED release(s)"
+git push
