@@ -43,7 +43,9 @@ for i in $HAPROXY_BRANCHES; do
         git tag -d "$HAPROXY_MINOR" || true
         git push origin ":$HAPROXY_MINOR" || true
     fi
+    git commit -a -m "Automated commit triggered by $HAPROXY_MINOR release(s)" || true
     git tag "$HAPROXY_MINOR"
+    git push origin "$HAPROXY_MINOR"
 done
 
 if [ "$PUSH" = "no" ]; then
@@ -71,6 +73,5 @@ done
 echo >> README.md
 cat README_short.md >> README.md
 
-git commit -a -m "Automated commit triggered by $HAPROXY_UPDATED release(s)" || true
+git commit -a -m "README regen triggered by $HAPROXY_UPDATED release(s)" || true
 git push
-git push --tags
