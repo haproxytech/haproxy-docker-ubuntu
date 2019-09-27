@@ -1,4 +1,4 @@
-FROM ubuntu
+FROM ubuntu:bionic
 
 MAINTAINER Dinko Korunic <dkorunic@haproxy.com>
 
