@@ -39,7 +39,7 @@ for i in $HAPROXY_BRANCHES; do
 
     docker run -it --rm "$DOCKER_TAG:$HAPROXY_MINOR" /usr/local/sbin/haproxy -c -f /usr/local/etc/haproxy/haproxy.cfg
 
-    if git rev-parse "$HAPROXY_MINOR" >/dev/null 2>&1; then
+    if git tag --list | egrep -q "^$HAPROXY_MINOR$" >/dev/null 2>&1; then
         git tag -d "$HAPROXY_MINOR" || true
         git push origin ":$HAPROXY_MINOR" || true
     fi
