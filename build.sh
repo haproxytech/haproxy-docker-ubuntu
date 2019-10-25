@@ -1,5 +1,4 @@
 #!/bin/sh
-set -e
 
 DOCKER_TAG="haproxytech/haproxy-ubuntu"
 HAPROXY_GITHUB_URL="https://github.com/haproxytech/haproxy-docker-ubuntu/blob/master"
@@ -37,7 +36,7 @@ for i in $HAPROXY_BRANCHES; do
         docker tag "$DOCKER_TAG:$HAPROXY_MINOR" "$DOCKER_TAG:latest"
     fi
 
-    docker run -it --rm "$DOCKER_TAG:$HAPROXY_MINOR" /usr/local/sbin/haproxy -c -f /usr/local/etc/haproxy/haproxy.cfg
+    docker run -it --rm "$DOCKER_TAG:$HAPROXY_MINOR" /usr/local/sbin/haproxy -c -f /usr/local/etc/haproxy/haproxy.cfg || continue
 
     if git tag --list | egrep -q "^$HAPROXY_MINOR$" >/dev/null 2>&1; then
         git tag -d "$HAPROXY_MINOR" || true
