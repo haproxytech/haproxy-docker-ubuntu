@@ -1,12 +1,11 @@
-# Supported tags and respective `Dockerfile` links
-
--	[`2.1-dev2`, `2.1`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/master/2.1/Dockerfile)
--	[`2.0.8`, `2.0`, `latest`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/master/2.0/Dockerfile)
--	[`1.9.12`, `1.9`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/master/1.9/Dockerfile)
--	[`1.8.22`, `1.8`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/master/1.8/Dockerfile)
--	[`1.7.12`, `1.7`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/master/1.7/Dockerfile)
--	[`1.6.15`, `1.6`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/master/1.6/Dockerfile)
--	[`1.5.19`, `1.5`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/master/1.5/Dockerfile)
+# Supported tags and respective `Dockerfile` links\n
+-\t[`2.1-dev3`, `2.1`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/master/2.1/Dockerfile)
+-\t[`2.0.8`, `2.0`, `latest`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/master/2.0/Dockerfile)
+-\t[`1.9.12`, `1.9`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/master/1.9/Dockerfile)
+-\t[`1.8.22`, `1.8`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/master/1.8/Dockerfile)
+-\t[`1.7.12`, `1.7`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/master/1.7/Dockerfile)
+-\t[`1.6.15`, `1.6`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/master/1.6/Dockerfile)
+-\t[`1.5.19`, `1.5`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/master/1.5/Dockerfile)
 
 # Quick reference
 
