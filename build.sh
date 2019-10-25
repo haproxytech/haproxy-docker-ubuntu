@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 DOCKER_TAG="haproxytech/haproxy-ubuntu"
 HAPROXY_GITHUB_URL="https://github.com/haproxytech/haproxy-docker-ubuntu/blob/master"
@@ -13,7 +13,7 @@ for i in $HAPROXY_BRANCHES; do
     DOCKERFILE="$i/Dockerfile"
     HAPROXY_MINOR_OLD=$(awk '/^ENV HAPROXY_MINOR/ {print $NF}' "$DOCKERFILE")
 
-    ./update.sh "$i"
+    ./update.sh "$i" || continue
 
     HAPROXY_MINOR=$(awk '/^ENV HAPROXY_MINOR/ {print $NF}' "$DOCKERFILE")
 
@@ -27,16 +27,20 @@ for i in $HAPROXY_BRANCHES; do
     PUSH="yes"
     HAPROXY_UPDATED="$HAPROXY_UPDATED $HAPROXY_MINOR"
 
-    docker pull $(awk '/^FROM/ {print $2}' "$DOCKERFILE")
+    if [ \( "x$1" = "xtest" \) -o \( "x$2" = "xtest" \) ]; then
+        docker pull $(awk '/^FROM/ {print $2}' "$DOCKERFILE")
 
-    docker build -t "$DOCKER_TAG:$HAPROXY_MINOR" "$i"
-    docker tag "$DOCKER_TAG:$HAPROXY_MINOR" "$DOCKER_TAG:$i"
+        docker build -t "$DOCKER_TAG:$HAPROXY_MINOR" "$i" || \
+            (echo "Failure building $DOCKER_TAG:$HAPROXY_MINOR"; exit 1)
+        docker tag "$DOCKER_TAG:$HAPROXY_MINOR" "$DOCKER_TAG:$i"
 
-    if [ "$i" = "$HAPROXY_CURRENT_BRANCH" ]; then
-        docker tag "$DOCKER_TAG:$HAPROXY_MINOR" "$DOCKER_TAG:latest"
+        if [ "$i" = "$HAPROXY_CURRENT_BRANCH" ]; then
+            docker tag "$DOCKER_TAG:$HAPROXY_MINOR" "$DOCKER_TAG:latest"
+        fi
+
+        docker run -it --rm "$DOCKER_TAG:$HAPROXY_MINOR" /usr/local/sbin/haproxy -c -f /usr/local/etc/haproxy/haproxy.cfg || \
+            (echo "Failure testing $DOCKER_TAG:$HAPROXY_MINOR"; exit 1)
     fi
-
-    docker run -it --rm "$DOCKER_TAG:$HAPROXY_MINOR" /usr/local/sbin/haproxy -c -f /usr/local/etc/haproxy/haproxy.cfg || continue
 
     if git tag --list | egrep -q "^$HAPROXY_MINOR$" >/dev/null 2>&1; then
         git tag -d "$HAPROXY_MINOR" || true
