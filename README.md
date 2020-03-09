@@ -1,5 +1,5 @@
 # Supported tags and respective `Dockerfile` links\n
--\t[`2.2-dev3`, `2.2`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/master/2.2/Dockerfile)
+-\t[`2.2-dev4`, `2.2`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/master/2.2/Dockerfile)
 -\t[`2.1.3`, `2.1`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/master/2.1/Dockerfile)
 -\t[`2.0.13`, `2.0`, `latest`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/master/2.0/Dockerfile)
 -\t[`1.9.14`, `1.9`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/master/1.9/Dockerfile)
