@@ -13,11 +13,15 @@ ENV HAPROXY_MINOR 2.2-dev6
 ENV HAPROXY_SHA256 777f6312671c3c7e9c32bcb4f8ae9f487f2311b8d5a8d1b1cef98833f45968ee
 ENV HAPROXY_SRC_URL http://www.haproxy.org/download
 
+ENV DATAPLANE_MINOR v1.2.5
+ENV DATAPLANE_SHA256 0359966747490b55e6ea8c75a9b4969c707ce644dd8041ad8afb49882b97f3a1
+ENV DATAPLANE_URL https://github.com/haproxytech/dataplaneapi/releases/download
+
 ENV HAPROXY_UID haproxy
 ENV HAPROXY_GID haproxy
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends libssl1.0.0 zlib1g "libpcre2-*" liblua5.3-0 tar curl socat && \
+    apt-get install -y --no-install-recommends libssl1.0.0 zlib1g "libpcre2-*" liblua5.3-0 tar curl socat ca-certificates && \
     apt-get install -y --no-install-recommends gcc make libc6-dev libssl-dev libpcre3-dev zlib1g-dev liblua5.3-dev && \
     curl -sfSL "$HAPROXY_SRC_URL/$HAPROXY_BRANCH/src/devel/haproxy-$HAPROXY_MINOR.tar.gz" -o haproxy.tar.gz && \
     echo "$HAPROXY_SHA256 *haproxy.tar.gz" | sha256sum -c - && \
@@ -40,7 +44,12 @@ RUN apt-get update && \
     rm -rf /tmp/haproxy && \
     apt-get purge -y --auto-remove gcc make libc6-dev libssl-dev libpcre2-dev zlib1g-dev liblua5.3-dev && \
     apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+    rm -rf /var/lib/apt/lists/* && \
+    curl -sfSL "$DATAPLANE_URL/$DATAPLANE_MINOR/dataplaneapi" -o dataplaneapi && \
+    echo "$DATAPLANE_SHA256 *dataplaneapi" | sha256sum -c - && \
+    mv dataplaneapi /usr/local/bin/dataplaneapi && \
+    chmod +x /usr/local/bin/dataplaneapi && \
+    ln -s /usr/local/bin/dataplaneapi /usr/bin/dataplaneapi
 
 COPY haproxy.cfg /usr/local/etc/haproxy
 COPY docker-entrypoint.sh /

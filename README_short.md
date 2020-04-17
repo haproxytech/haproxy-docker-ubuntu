@@ -87,6 +87,32 @@ $ docker kill -s HUP my-running-haproxy
 
 To achieve seamless reloads it is required to use `expose-fd listeners` and socket transfers which are not enabled by default. More on this topic is in the blog post [Truly Seamless Reloads with HAProxy](https://www.haproxy.com/blog/truly-seamless-reloads-with-haproxy-no-more-hacks/).
 
+### Enabling Data Plane API
+
+[Data Plane API](https://www.haproxy.com/documentation/hapee/2-0r1/configuration/dataplaneapi/) sidecar is being distributed by default in all 2.0+ images and to enable it there are a few steps required:
+
+1. define one or more users through `userlist`
+2. enable dataplane api process through `program api`
+3. enable haproxy.cfg to be read/write mounted in Docker, either by defining volume being r/w or by rebuilding image with your own haproxy.cfg
+4. expose dataplane TCP port in Docker with `--expose`
+
+Relevant part of haproxy.cfg is below:
+
+```
+userlist haproxy-dataplaneapi
+    user admin insecure-password mypassword
+
+program api
+   command /usr/bin/dataplaneapi --host 0.0.0.0 --port 5555 --haproxy-bin /usr/sbin/haproxy --config-file /etc/haproxy/haproxy.cfg --reload-cmd "kill -SIGUSR2 1" --reload-delay 5 --userlist hapee-dataplaneapi
+   no option start-on-reload
+```
+
+To run such image we would use the following command (note that volume containing haproxy.cfg is mounted r/w and port tcp/5555 is being exposed):
+
+```console
+$ docker run -d --name my-running-haproxy --expose 5555 -v /path/to/etc/haproxy:/usr/local/etc/haproxy:rw haproxytech/haproxy-ubuntu
+```
+
 # License
 
 View [license information](https://raw.githubusercontent.com/haproxy/haproxy/master/LICENSE) for the software contained in this image.
