@@ -80,7 +80,7 @@ $ docker run -d --name my-running-haproxy my-haproxy
 
 You will also need to publish the ports your HAProxy is listening on to the host by specifying the `-p` option, for example `-p 8080:80` to publish port 8080 from the container host to port 80 in the container.
 
-## Directly via bind mount
+## Use volume for configuration persistency
 
 ```console
 $ docker run -d --name my-running-haproxy -v /path/to/etc/haproxy:/usr/local/etc/haproxy:ro haproxytech/haproxy-ubuntu:2.0
@@ -88,7 +88,7 @@ $ docker run -d --name my-running-haproxy -v /path/to/etc/haproxy:/usr/local/etc
 
 Note that your host's `/path/to/etc/haproxy` folder should be populated with a file named `haproxy.cfg` as well as any other accompanying files local to `/etc/haproxy`.
 
-### Reloading config
+## Reloading config
 
 To be able to reload HAProxy configuration, you can send `SIGHUP` to the container:
 
@@ -98,7 +98,7 @@ $ docker kill -s HUP my-running-haproxy
 
 To achieve seamless reloads it is required to use `expose-fd listeners` and socket transfers which are not enabled by default. More on this topic is in the blog post [Truly Seamless Reloads with HAProxy](https://www.haproxy.com/blog/truly-seamless-reloads-with-haproxy-no-more-hacks/).
 
-### Enabling Data Plane API
+## Enable Data Plane API
 
 [Data Plane API](https://www.haproxy.com/documentation/hapee/2-0r1/configuration/dataplaneapi/) sidecar is being distributed by default in all 2.0+ images and to enable it there are a few steps required:
 
