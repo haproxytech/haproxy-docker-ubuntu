@@ -55,7 +55,7 @@ if [ "$PUSH" = "no" ]; then
         exit 0
 fi
 
-echo "# Supported tags and respective \`Dockerfile\` links\n" > README.md
+echo -e "# Supported tags and respective \`Dockerfile\` links\n" > README.md
 for i in $(awk '/^ENV HAPROXY_MINOR/ {print $NF}' */Dockerfile| sort -n -r); do
         short=$(echo $i | cut -d. -f1-2 |cut -d- -f1)
         if [ "$short" = "$HAPROXY_CURRENT_BRANCH" ]; then
@@ -71,7 +71,7 @@ for i in $(awk '/^ENV HAPROXY_MINOR/ {print $NF}' */Dockerfile| sort -n -r); do
                         final="-\t[\`$i\`, \`$short\`]($HAPROXY_GITHUB_URL/$short/Dockerfile)"
                 fi
         fi
-        echo "$final" >> README.md
+        echo -e "$final" >> README.md
 done
 echo >> README.md
 cat README_short.md >> README.md
