@@ -5,16 +5,16 @@ MAINTAINER Dinko Korunic <dkorunic@haproxy.com>
 LABEL Name HAProxy
 LABEL Release Community Edition
 LABEL Vendor HAProxy
-LABEL Version 2.2-dev6
+LABEL Version 2.2-dev7
 LABEL RUN /usr/bin/docker -d IMAGE
 
 ENV HAPROXY_BRANCH 2.2
-ENV HAPROXY_MINOR 2.2-dev6
-ENV HAPROXY_SHA256 777f6312671c3c7e9c32bcb4f8ae9f487f2311b8d5a8d1b1cef98833f45968ee
+ENV HAPROXY_MINOR 2.2-dev7
+ENV HAPROXY_SHA256 b81f0feaa91ab7568b3378b3a3651419be29d91afef122dbf5aef96b2a25d971
 ENV HAPROXY_SRC_URL http://www.haproxy.org/download
 
-ENV DATAPLANE_MINOR v1.2.5
-ENV DATAPLANE_SHA256 0359966747490b55e6ea8c75a9b4969c707ce644dd8041ad8afb49882b97f3a1
+ENV DATAPLANE_MINOR 2.0.0
+ENV DATAPLANE_SHA256 3fe3739d2d54b769804638c16c98a43c34ad568c25bb8a132635d240cbdefbce
 ENV DATAPLANE_URL https://github.com/haproxytech/dataplaneapi/releases/download
 
 ENV HAPROXY_UID haproxy
@@ -45,11 +45,15 @@ RUN apt-get update && \
     apt-get purge -y --auto-remove gcc make libc6-dev libssl-dev libpcre2-dev zlib1g-dev liblua5.3-dev && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* && \
-    curl -sfSL "$DATAPLANE_URL/$DATAPLANE_MINOR/dataplaneapi" -o dataplaneapi && \
-    echo "$DATAPLANE_SHA256 *dataplaneapi" | sha256sum -c - && \
-    mv dataplaneapi /usr/local/bin/dataplaneapi && \
+    curl -sfSL "${DATAPLANE_URL}/v${DATAPLANE_MINOR}/dataplaneapi_${DATAPLANE_MINOR}_Linux_x86_64.tar.gz" -o dataplane.tar.gz && \
+    echo "$DATAPLANE_SHA256 *dataplane.tar.gz" | sha256sum -c - && \
+    mkdir /tmp/dataplane && \
+    tar -xzf dataplane.tar.gz -C /tmp/dataplane --strip-components=1 && \
+    rm -f dataplane.tar.gz && \
+    mv /tmp/dataplane/dataplaneapi /usr/local/bin/dataplaneapi && \
     chmod +x /usr/local/bin/dataplaneapi && \
-    ln -s /usr/local/bin/dataplaneapi /usr/bin/dataplaneapi
+    ln -s /usr/local/bin/dataplaneapi /usr/bin/dataplaneapi && \
+    rm -rf /tmp/dataplane
 
 COPY haproxy.cfg /usr/local/etc/haproxy
 COPY docker-entrypoint.sh /
