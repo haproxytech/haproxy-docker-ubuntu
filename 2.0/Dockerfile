@@ -13,15 +13,15 @@ ENV HAPROXY_MINOR 2.0.15
 ENV HAPROXY_SHA256 6e21c6b92d4035ee006ef18e25f396d7e71552a6d3a1e075fa9fe59d89eaaeee
 ENV HAPROXY_SRC_URL http://www.haproxy.org/download
 
-ENV DATAPLANE_MINOR 2.0.3
-ENV DATAPLANE_SHA256 2fba86d1ad361b7722020850b3c07721272864128e364e9f3da4fe83e1ed73b3
+ENV DATAPLANE_MINOR 2.1.0
+ENV DATAPLANE_SHA256 15624a2e41f326b65ca977b1b6b840b14a265a8347f4a77775cf5d9a29b9fd06
 ENV DATAPLANE_URL https://github.com/haproxytech/dataplaneapi/releases/download
 
 ENV HAPROXY_UID haproxy
 ENV HAPROXY_GID haproxy
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends libssl1.0.0 zlib1g "libpcre2-*" liblua5.3-0 tar curl socat ca-certificates && \
+    apt-get install -y --no-install-recommends procps libssl1.0.0 zlib1g "libpcre2-*" liblua5.3-0 tar curl socat ca-certificates && \
     apt-get install -y --no-install-recommends gcc make libc6-dev libssl-dev libpcre3-dev zlib1g-dev liblua5.3-dev && \
     curl -sfSL "${HAPROXY_SRC_URL}/${HAPROXY_BRANCH}/src/haproxy-${HAPROXY_MINOR}.tar.gz" -o haproxy.tar.gz && \
     echo "$HAPROXY_SHA256 *haproxy.tar.gz" | sha256sum -c - && \

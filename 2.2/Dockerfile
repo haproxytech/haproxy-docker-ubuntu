@@ -9,7 +9,7 @@ LABEL Version 2.2.0
 LABEL RUN /usr/bin/docker -d IMAGE
 
 ENV HAPROXY_BRANCH 2.2
-ENV HAPROXY_MINOR 2.2.0
+ENV HAPROXY_MINOR 2.2.0-x
 ENV HAPROXY_SHA256 3c1a87160eea40e067f1e2813bfe692280a10c455beb17a8ee7fae11e4223274
 ENV HAPROXY_SRC_URL http://www.haproxy.org/download
 
@@ -21,7 +21,7 @@ ENV HAPROXY_UID haproxy
 ENV HAPROXY_GID haproxy
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends libssl1.0.0 zlib1g "libpcre2-*" liblua5.3-0 tar curl socat ca-certificates && \
+    apt-get install -y --no-install-recommends procps libssl1.0.0 zlib1g "libpcre2-*" liblua5.3-0 tar curl socat ca-certificates && \
     apt-get install -y --no-install-recommends gcc make libc6-dev libssl-dev libpcre3-dev zlib1g-dev liblua5.3-dev && \
     curl -sfSL "$HAPROXY_SRC_URL/$HAPROXY_BRANCH/src/haproxy-$HAPROXY_MINOR.tar.gz" -o haproxy.tar.gz && \
     echo "$HAPROXY_SHA256 *haproxy.tar.gz" | sha256sum -c - && \
