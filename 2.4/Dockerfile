@@ -5,11 +5,11 @@ MAINTAINER Dinko Korunic <dkorunic@haproxy.com>
 LABEL Name HAProxy
 LABEL Release Community Edition
 LABEL Vendor HAProxy
-LABEL Version 2.3.1
+LABEL Version 2.4.0
 LABEL RUN /usr/bin/docker -d IMAGE
 
-ENV HAPROXY_BRANCH 2.3
-ENV HAPROXY_MINOR 2.3.1
+ENV HAPROXY_BRANCH 2.4
+ENV HAPROXY_MINOR 2.4.0-old
 ENV HAPROXY_SHA256 8d3bf1252a5b60b21e9885c8d0d6d89e932d320c2977a6522aed6df81eefca4b
 ENV HAPROXY_SRC_URL http://www.haproxy.org/download
 
@@ -23,7 +23,7 @@ ENV HAPROXY_GID haproxy
 RUN apt-get update && \
     apt-get install -y --no-install-recommends procps libssl1.1 zlib1g "libpcre2-*" liblua5.3-0 tar curl socat ca-certificates && \
     apt-get install -y --no-install-recommends gcc make libc6-dev libssl-dev libpcre3-dev zlib1g-dev liblua5.3-dev && \
-    curl -sfSL "${HAPROXY_SRC_URL}/${HAPROXY_BRANCH}/src/haproxy-${HAPROXY_MINOR}.tar.gz" -o haproxy.tar.gz && \
+    curl -sfSL "${HAPROXY_SRC_URL}/${HAPROXY_BRANCH}/src/devel/haproxy-${HAPROXY_MINOR}.tar.gz" -o haproxy.tar.gz && \
     echo "$HAPROXY_SHA256 *haproxy.tar.gz" | sha256sum -c - && \
     groupadd "$HAPROXY_GID" && \
     useradd -g "$HAPROXY_GID" "$HAPROXY_UID" && \
