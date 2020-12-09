@@ -89,7 +89,7 @@ To achieve seamless reloads it is required to use `expose-fd listeners` and sock
 
 ## Enable Data Plane API
 
-[Data Plane API](https://www.haproxy.com/documentation/hapee/2-0r1/configuration/dataplaneapi/) sidecar is being distributed by default in all 2.0+ images and to enable it there are a few steps required:
+[Data Plane API](https://www.haproxy.com/documentation/hapee/2-2r1/reference/dataplaneapi/) sidecar is being distributed by default in all 2.0+ images and to enable it there are a few steps required:
 
 1. define one or more users through `userlist`
 2. enable dataplane api process through `program api`
@@ -103,7 +103,7 @@ userlist haproxy-dataplaneapi
     user admin insecure-password mypassword
 
 program api
-   command /usr/bin/dataplaneapi --host 0.0.0.0 --port 5555 --haproxy-bin /usr/sbin/haproxy --config-file /etc/haproxy/haproxy.cfg --reload-cmd "kill -SIGUSR2 1" --reload-delay 5 --userlist hapee-dataplaneapi
+   command /usr/bin/dataplaneapi --host 0.0.0.0 --port 5555 --haproxy-bin /usr/sbin/haproxy --config-file /etc/haproxy/haproxy.cfg --reload-cmd "kill -SIGUSR2 1" --reload-delay 5 --userlist haproxy-dataplaneapi
    no option start-on-reload
 ```
 
