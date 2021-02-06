@@ -5,12 +5,12 @@ MAINTAINER Dinko Korunic <dkorunic@haproxy.com>
 LABEL Name HAProxy
 LABEL Release Community Edition
 LABEL Vendor HAProxy
-LABEL Version 2.3.4
+LABEL Version 2.3.5
 LABEL RUN /usr/bin/docker -d IMAGE
 
 ENV HAPROXY_BRANCH 2.3
-ENV HAPROXY_MINOR 2.3.4
-ENV HAPROXY_SHA256 60148cdfedd6b19c401dbcd75ccd76a53c20bc76c49032ba32af98a0a5c495ed
+ENV HAPROXY_MINOR 2.3.5
+ENV HAPROXY_SHA256 7924539530bbf555829c7f5886be0b7fcf8d9c8ffe0867b7010beb670abfbe4b
 ENV HAPROXY_SRC_URL http://www.haproxy.org/download
 
 ENV DATAPLANE_MINOR 2.2.0
