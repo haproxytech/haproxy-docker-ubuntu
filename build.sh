@@ -12,13 +12,15 @@ for i in $HAPROXY_BRANCHES; do
 
     DOCKERFILE="$i/Dockerfile"
     HAPROXY_MINOR_OLD=$(awk '/^ENV HAPROXY_MINOR/ {print $NF}' "$DOCKERFILE")
+    DATAPLANE_MINOR_OLD=$(awk '/^ENV DATAPLANE_MINOR/ {print $NF}' "$DOCKERFILE")
 
     ./update.sh "$i" || continue
 
     HAPROXY_MINOR=$(awk '/^ENV HAPROXY_MINOR/ {print $NF}' "$DOCKERFILE")
+    DATAPLANE_MINOR=$(awk '/^ENV DATAPLANE_MINOR/ {print $NF}' "$DOCKERFILE")
 
     if [ "x$1" != "xforce" ]; then
-        if [ "$HAPROXY_MINOR_OLD" = "$HAPROXY_MINOR" ]; then
+        if [ \( "$HAPROXY_MINOR_OLD" = "$HAPROXY_MINOR" \) -a \( "$DATAPLANE_MINOR_OLD" = "$DATAPLANE_MINOR" \) ]; then
             echo "No new releases, not building $i branch"
             continue
         fi
