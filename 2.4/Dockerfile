@@ -17,19 +17,12 @@ ENV DATAPLANE_MINOR 2.3.0
 ENV DATAPLANE_SHA256 78cfdff090f8f4af6efba8064e82516fd0f25b0688bb8ad1e21b087053ef14c7
 ENV DATAPLANE_URL https://github.com/haproxytech/dataplaneapi/releases/download
 
-ENV LIBSLZ_VERSION 1.2.0
-
 ENV HAPROXY_UID haproxy
 ENV HAPROXY_GID haproxy
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends procps libssl1.1 zlib1g "libpcre2-*" liblua5.3-0 tar curl socat ca-certificates && \
     apt-get install -y --no-install-recommends gcc make libc6-dev libssl-dev libpcre3-dev zlib1g-dev liblua5.3-dev && \
-    curl -sfSL "http://git.1wt.eu/web?p=libslz.git;a=snapshot;h=v${LIBSLZ_VERSION};sf=tgz" -o libslz.tar.gz && \
-    mkdir -p /tmp/libslz && \
-    tar -xzf libslz.tar.gz -C /tmp/libslz --strip-components=1 && \
-    make -C /tmp/libslz static && \
-    rm -f libslz.tar.gz && \
     curl -sfSL "${HAPROXY_SRC_URL}/${HAPROXY_BRANCH}/src/devel/haproxy-${HAPROXY_MINOR}.tar.gz" -o haproxy.tar.gz && \
     echo "$HAPROXY_SHA256 *haproxy.tar.gz" | sha256sum -c - && \
     groupadd "$HAPROXY_GID" && \
@@ -39,7 +32,7 @@ RUN apt-get update && \
     rm -f haproxy.tar.gz && \
     make -C /tmp/haproxy -j"$(nproc)" TARGET=linux-glibc CPU=generic USE_PCRE2=1 USE_PCRE2_JIT=1 USE_REGPARM=1 USE_OPENSSL=1 \
                             USE_TFO=1 USE_LINUX_TPROXY=1 USE_LUA=1 USE_GETADDRINFO=1 \
-                            USE_PROMEX=1 USE_SLZ=1 SLZ_INC=/tmp/libslz/src SLZ_LIB=/tmp/libslz \
+                            USE_PROMEX=1 USE_SLZ=1 \
                             all && \
     make -C /tmp/haproxy TARGET=linux-glibc install-bin install-man && \
     ln -s /usr/local/sbin/haproxy /usr/sbin/haproxy && \
@@ -48,7 +41,6 @@ RUN apt-get update && \
     mkdir -p /usr/local/etc/haproxy && \
     ln -s /usr/local/etc/haproxy /etc/haproxy && \
     cp -R /tmp/haproxy/examples/errorfiles /usr/local/etc/haproxy/errors && \
-    rm -rf /tmp/libslz && \
     rm -rf /tmp/haproxy && \
     apt-get purge -y --auto-remove gcc make libc6-dev libssl-dev libpcre2-dev zlib1g-dev liblua5.3-dev && \
     apt-get clean && \
