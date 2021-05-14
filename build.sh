@@ -2,8 +2,8 @@
 
 DOCKER_TAG="haproxytech/haproxy-ubuntu"
 HAPROXY_GITHUB_URL="https://github.com/haproxytech/haproxy-docker-ubuntu/blob/master"
-HAPROXY_BRANCHES="1.5 1.6 1.7 1.8 1.9 2.0 2.1 2.2 2.3 2.4"
-HAPROXY_CURRENT_BRANCH="2.3"
+HAPROXY_BRANCHES="1.5 1.6 1.7 1.8 1.9 2.0 2.1 2.2 2.3 2.4 2.5"
+HAPROXY_CURRENT_BRANCH="2.4"
 PUSH="no"
 HAPROXY_UPDATED=""
 
@@ -44,10 +44,8 @@ for i in $HAPROXY_BRANCHES; do
             (echo "Failure testing $DOCKER_TAG:$HAPROXY_MINOR"; exit 1)
     fi
 
-    if git tag --list | egrep -q "^$HAPROXY_MINOR$" >/dev/null 2>&1; then
-        git tag -d "$HAPROXY_MINOR" || true
-        git push origin ":$HAPROXY_MINOR" || true
-    fi
+    git tag -d "$HAPROXY_MINOR" || true
+    git push origin ":$HAPROXY_MINOR" || true
     git commit -a -m "Automated commit triggered by $HAPROXY_MINOR release(s)" || true
     git tag "$HAPROXY_MINOR"
     git push origin "$HAPROXY_MINOR"
