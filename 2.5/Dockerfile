@@ -5,21 +5,17 @@ MAINTAINER Dinko Korunic <dkorunic@haproxy.com>
 LABEL Name HAProxy
 LABEL Release Community Edition
 LABEL Vendor HAProxy
-LABEL Version 2.2.14
+LABEL Version 2.5-dev0
 LABEL RUN /usr/bin/docker -d IMAGE
 
-ENV HAPROXY_BRANCH 2.2
-ENV HAPROXY_MINOR 2.2.14
-ENV HAPROXY_SHA256 6a9b702f04b07786f3e5878de8172a727acfdfdbc1cefe1c7a438df372f2fb61
+ENV HAPROXY_BRANCH 2.5
+ENV HAPROXY_MINOR 2.5-dev0
+ENV HAPROXY_SHA256 6ee45b5047649b2df3fd48f6659860e8845d970bd4e0c1764490a54c3047bd23
 ENV HAPROXY_SRC_URL http://www.haproxy.org/download
 
 ENV DATAPLANE_MINOR 2.3.0
 ENV DATAPLANE_SHA256 78cfdff090f8f4af6efba8064e82516fd0f25b0688bb8ad1e21b087053ef14c7
 ENV DATAPLANE_URL https://github.com/haproxytech/dataplaneapi/releases/download
-
-ENV LIBSLZ_MINOR 1.2.0
-ENV LIBSLZ_SHA256 723a8ef648ac5b30e5074c013ff61a5e5f54a5aafc9496f7dab9f6b02030bf24
-ENV LIBSLZ_URL https://github.com/wtarreau/libslz/archive/refs/tags
 
 ENV HAPROXY_UID haproxy
 ENV HAPROXY_GID haproxy
@@ -27,13 +23,7 @@ ENV HAPROXY_GID haproxy
 RUN apt-get update && \
     apt-get install -y --no-install-recommends procps libssl1.1 zlib1g "libpcre2-*" liblua5.3-0 tar curl socat ca-certificates && \
     apt-get install -y --no-install-recommends gcc make libc6-dev libssl-dev libpcre3-dev zlib1g-dev liblua5.3-dev && \
-    curl -sfSL "${LIBSLZ_URL}/v${LIBSLZ_MINOR}.tar.gz" -o libslz.tar.gz && \
-    echo "$LIBSLZ_SHA256 *libslz.tar.gz" | sha256sum -c - && \
-    mkdir -p /tmp/libslz && \
-    tar -xzf libslz.tar.gz -C /tmp/libslz --strip-components=1 && \
-    make -C /tmp/libslz static && \
-    rm -f libslz.tar.gz && \
-    curl -sfSL "${HAPROXY_SRC_URL}/${HAPROXY_BRANCH}/src/haproxy-${HAPROXY_MINOR}.tar.gz" -o haproxy.tar.gz && \
+    curl -sfSL "${HAPROXY_SRC_URL}/${HAPROXY_BRANCH}/src/devel/haproxy-${HAPROXY_MINOR}.tar.gz" -o haproxy.tar.gz && \
     echo "$HAPROXY_SHA256 *haproxy.tar.gz" | sha256sum -c - && \
     groupadd "$HAPROXY_GID" && \
     useradd -g "$HAPROXY_GID" "$HAPROXY_UID" && \
@@ -42,8 +32,7 @@ RUN apt-get update && \
     rm -f haproxy.tar.gz && \
     make -C /tmp/haproxy -j"$(nproc)" TARGET=linux-glibc CPU=generic USE_PCRE2=1 USE_PCRE2_JIT=1 USE_REGPARM=1 USE_OPENSSL=1 \
                             USE_TFO=1 USE_LINUX_TPROXY=1 USE_LUA=1 USE_GETADDRINFO=1 \
-                            EXTRA_OBJS="contrib/prometheus-exporter/service-prometheus.o" \
-                            USE_SLZ=1 SLZ_INC=/tmp/libslz/src SLZ_LIB=/tmp/libslz \
+                            USE_PROMEX=1 USE_SLZ=1 \
                             all && \
     make -C /tmp/haproxy TARGET=linux-glibc install-bin install-man && \
     ln -s /usr/local/sbin/haproxy /usr/sbin/haproxy && \
@@ -52,7 +41,6 @@ RUN apt-get update && \
     mkdir -p /usr/local/etc/haproxy && \
     ln -s /usr/local/etc/haproxy /etc/haproxy && \
     cp -R /tmp/haproxy/examples/errorfiles /usr/local/etc/haproxy/errors && \
-    rm -rf /tmp/libslz && \
     rm -rf /tmp/haproxy && \
     apt-get purge -y --auto-remove gcc make libc6-dev libssl-dev libpcre2-dev zlib1g-dev liblua5.3-dev && \
     apt-get clean && \

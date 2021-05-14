@@ -17,7 +17,9 @@ ENV DATAPLANE_MINOR 2.3.0
 ENV DATAPLANE_SHA256 78cfdff090f8f4af6efba8064e82516fd0f25b0688bb8ad1e21b087053ef14c7
 ENV DATAPLANE_URL https://github.com/haproxytech/dataplaneapi/releases/download
 
-ENV LIBSLZ_VERSION 1.2.0
+ENV LIBSLZ_MINOR 1.2.0
+ENV LIBSLZ_SHA256 723a8ef648ac5b30e5074c013ff61a5e5f54a5aafc9496f7dab9f6b02030bf24
+ENV LIBSLZ_URL https://github.com/wtarreau/libslz/archive/refs/tags
 
 ENV HAPROXY_UID haproxy
 ENV HAPROXY_GID haproxy
@@ -25,7 +27,8 @@ ENV HAPROXY_GID haproxy
 RUN apt-get update && \
     apt-get install -y --no-install-recommends procps libssl1.1 zlib1g "libpcre2-*" liblua5.3-0 tar curl socat ca-certificates && \
     apt-get install -y --no-install-recommends gcc make libc6-dev libssl-dev libpcre3-dev zlib1g-dev liblua5.3-dev && \
-    curl -sfSL "http://git.1wt.eu/web?p=libslz.git;a=snapshot;h=v${LIBSLZ_VERSION};sf=tgz" -o libslz.tar.gz && \
+    curl -sfSL "${LIBSLZ_URL}/v${LIBSLZ_MINOR}.tar.gz" -o libslz.tar.gz && \
+    echo "$LIBSLZ_SHA256 *libslz.tar.gz" | sha256sum -c - && \
     mkdir -p /tmp/libslz && \
     tar -xzf libslz.tar.gz -C /tmp/libslz --strip-components=1 && \
     make -C /tmp/libslz static && \
