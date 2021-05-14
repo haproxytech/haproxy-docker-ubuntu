@@ -1,0 +1,23 @@
+name: Version update check and release
+
+on:
+  schedule:
+    - cron: "*/20 * * * *"
+  workflow_dispatch:
+
+jobs:
+  main:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repo
+        id: checkout
+        uses: actions/checkout@v2
+        with:
+          token: ${{ secrets.ACTION_TOKEN }}
+
+      - name: Run a multi-line script
+        id: build
+        run: |
+          git config --local user.email "github-actions[bot]@haproxy.com"
+          git config --local user.name "github-actions[bot]"
+          ./build.sh
