@@ -1,36 +1,36 @@
 # Supported tags and respective `Dockerfile` links
 
--	[`2.5-dev0`, `2.5`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/master/2.5/Dockerfile)
--	[`2.4.0`, `2.4`, `latest`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/master/2.4/Dockerfile)
--	[`2.3.10`, `2.3`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/master/2.3/Dockerfile)
--	[`2.2.14`, `2.2`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/master/2.2/Dockerfile)
--	[`2.1.12`, `2.1`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/master/2.1/Dockerfile)
--	[`2.0.22`, `2.0`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/master/2.0/Dockerfile)
--	[`1.9.16`, `1.9`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/master/1.9/Dockerfile)
--	[`1.8.30`, `1.8`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/master/1.8/Dockerfile)
--	[`1.7.14`, `1.7`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/master/1.7/Dockerfile)
--	[`1.6.16`, `1.6`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/master/1.6/Dockerfile)
--	[`1.5.19`, `1.5`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/master/1.5/Dockerfile)
+-	[`2.5-dev0`, `2.5`](/2.5/Dockerfile)
+-	[`2.4.0`, `2.4`](/2.4/Dockerfile)
+-	[`2.3.10`, `2.3`](/2.3/Dockerfile)
+-	[`2.2.14`, `2.2`](/2.2/Dockerfile)
+-	[`2.1.12`, `2.1`](/2.1/Dockerfile)
+-	[`2.0.22`, `2.0`](/2.0/Dockerfile)
+-	[`1.9.16`, `1.9`](/1.9/Dockerfile)
+-	[`1.8.30`, `1.8`](/1.8/Dockerfile)
+-	[`1.7.14`, `1.7`](/1.7/Dockerfile)
+-	[`1.6.16`, `1.6`](/1.6/Dockerfile)
+-	[`1.5.19`, `1.5`](/1.5/Dockerfile)
 
 # Quick reference
 
--	**Where to get help**:  
-	[HAProxy mailing list](mailto:haproxy@formilux.org), [HAProxy Community Slack](https://slack.haproxy.org/) or [#haproxy on FreeNode](irc://chat.freenode.net:6697/haproxy)
+- **Where to get help**:  
+  [HAProxy mailing list](mailto:haproxy@formilux.org), [HAProxy Community Slack](https://slack.haproxy.org/) or [#haproxy on FreeNode](irc://chat.freenode.net:6697/haproxy)
 
--	**Where to file issues**:  
-	[https://github.com/haproxytech/haproxy-docker-ubuntu/issues](https://github.com/haproxytech/haproxy-docker-ubuntu/issues)
+- **Where to file issues**:  
+  [https://github.com/haproxytech/haproxy-docker-ubuntu/issues](https://github.com/haproxytech/haproxy-docker-ubuntu/issues)
 
--	**Maintained by**:  
-	[HAProxy Technologies](https://github.com/haproxytech)
+- **Maintained by**:  
+  [HAProxy Technologies](https://github.com/haproxytech)
 
--	**Supported architectures**: ([more info](https://github.com/docker-library/official-images#architectures-other-than-amd64))  
-	[`amd64`](https://hub.docker.com/r/amd64/haproxy/)
+- **Supported architectures**: ([more info](https://github.com/docker-library/official-images#architectures-other-than-amd64))  
+  [`amd64`](https://hub.docker.com/r/amd64/haproxy/)
 
--	**Image updates**:  
-	[commits to `haproxytech/haproxy-docker-ubuntu`](https://github.com/haproxytech/haproxy-docker-ubuntu/commits/master), [top level `haproxytech/haproxy-docker-ubuntu` image folder](https://github.com/haproxytech/haproxy-docker-ubuntu)  
+- **Image updates**:  
+  [commits to `haproxytech/haproxy-docker-ubuntu`](https://github.com/haproxytech/haproxy-docker-ubuntu/commits/master), [top level `haproxytech/haproxy-docker-ubuntu` image folder](https://github.com/haproxytech/haproxy-docker-ubuntu)
 
--	**Source of this description**:  
-	[README.md](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/master/README.md)
+- **Source of this description**:  
+  [README.md](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/master/README.md)
 
 # What is HAProxy?
 
@@ -40,15 +40,15 @@ It comes bundled with a web UI, called the HAProxy Stats page, that you can use 
 
 Other features include:
 
-* SSL/TLS termination
-* Gzip compression
-* Health checking
-* HTTP/2
-* gRPC support
-* Lua scripting
-* DNS service discovery
-* Automatic retries of failed conenctions
-* Verbose logging
+- SSL/TLS termination
+- Gzip compression
+- Health checking
+- HTTP/2
+- gRPC support
+- Lua scripting
+- DNS service discovery
+- Automatic retries of failed conenctions
+- Verbose logging
 
 ![logo](https://www.haproxy.org/img/HAProxyCommunityEdition_60px.png)
 
@@ -117,7 +117,7 @@ userlist haproxy-dataplaneapi
     user admin insecure-password mypassword
 
 program api
-   command /usr/bin/dataplaneapi --host 0.0.0.0 --port 5555 --haproxy-bin /usr/sbin/haproxy --config-file /etc/haproxy/haproxy.cfg --reload-cmd "kill -SIGUSR2 1" --reload-delay 5 --userlist haproxy-dataplaneapi
+   command /usr/bin/dataplaneapi --host 0.0.0.0 --port 5555 --haproxy-bin /usr/sbin/haproxy --config-file /usr/local/etc/haproxy/haproxy.cfg --reload-cmd "kill -SIGUSR2 1" --reload-delay 5 --userlist haproxy-dataplaneapi
    no option start-on-reload
 ```
 
