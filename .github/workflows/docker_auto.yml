@@ -2,15 +2,15 @@ name: Automatic build on release and push to Docker Hub
 on:
   push:
     tags:
-      - '[0-9]+.[0-9]+.[0-9]+'
-      - '[0-9]+.[0-9]+-dev[0-9]+'
+      - "[0-9]+.[0-9]+.[0-9]+"
+      - "[0-9]+.[0-9]+-dev[0-9]+"
 jobs:
   main:
     runs-on: ubuntu-latest
     env:
       DOCKER_PLATFORMS: linux/amd64,linux/arm/v7,linux/arm64,linux/ppc64le
       DOCKER_IMAGE: haproxytech/haproxy-ubuntu
-      STABLE_BRANCH: '2.4'
+      STABLE_BRANCH: "2.4"
     steps:
       - name: Login to Docker Hub
         id: login
@@ -41,14 +41,14 @@ jobs:
       - name: Prepare env variables
         id: env
         run: |
-           echo "BUILD_BRANCH=$(echo $GITHUB_REF | cut -d / -f 3 | cut -d. -f-2 | cut -d- -f1)" >> $GITHUB_ENV
-           echo "BUILD_VER=$(echo $GITHUB_REF | cut -d / -f 3)" >> $GITHUB_ENV
-           echo "BUILD_DATE=$(date +'%Y-%m-%d %H:%M:%S')" >> $GITHUB_ENV
-           echo "GIT_SHA=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_ENV
-           echo "GIT_REF=$(git symbolic-ref -q --short HEAD || git describe --tags --exact-match)" >> $GITHUB_ENV
+          echo "BUILD_BRANCH=$(echo $GITHUB_REF | cut -d / -f 3 | cut -d. -f-2 | cut -d- -f1)" >> $GITHUB_ENV
+          echo "BUILD_VER=$(echo $GITHUB_REF | cut -d / -f 3)" >> $GITHUB_ENV
+          echo "BUILD_DATE=$(date +'%Y-%m-%d %H:%M:%S')" >> $GITHUB_ENV
+          echo "GIT_SHA=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_ENV
+          echo "GIT_REF=$(git symbolic-ref -q --short HEAD || git describe --tags --exact-match)" >> $GITHUB_ENV
 
       - name: Build and push latest stable branch
-        if: ${{ env.BUILD_BRANCH == env.STABLE_BRANCH }} 
+        if: ${{ env.BUILD_BRANCH == env.STABLE_BRANCH }}
         id: docker_build_latest
         uses: docker/build-push-action@v2
         with:
@@ -73,7 +73,7 @@ jobs:
           cache-to: type=local,dest=/tmp/.buildx-cache-new
 
       - name: Build and push everything else
-        if: ${{ env.BUILD_BRANCH != env.STABLE_BRANCH }} 
+        if: ${{ env.BUILD_BRANCH != env.STABLE_BRANCH }}
         id: docker_build_regular
         uses: docker/build-push-action@v2
         with:
