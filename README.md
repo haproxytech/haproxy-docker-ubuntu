@@ -1,16 +1,16 @@
 # Supported tags and respective `Dockerfile` links
 
--	[`2.5-dev0`, `2.5`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/master/2.5/Dockerfile)
--	[`2.4.0`, `2.4`, `latest`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/master/2.4/Dockerfile)
--	[`2.3.10`, `2.3`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/master/2.3/Dockerfile)
--	[`2.2.14`, `2.2`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/master/2.2/Dockerfile)
--	[`2.1.12`, `2.1`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/master/2.1/Dockerfile)
--	[`2.0.22`, `2.0`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/master/2.0/Dockerfile)
--	[`1.9.16`, `1.9`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/master/1.9/Dockerfile)
--	[`1.8.30`, `1.8`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/master/1.8/Dockerfile)
--	[`1.7.14`, `1.7`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/master/1.7/Dockerfile)
--	[`1.6.16`, `1.6`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/master/1.6/Dockerfile)
--	[`1.5.19`, `1.5`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/master/1.5/Dockerfile)
+-	[`2.5-dev0`, `2.5`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/main/2.5/Dockerfile)
+-	[`2.4.0`, `2.4`, `latest`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/main/2.4/Dockerfile)
+-	[`2.3.10`, `2.3`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/main/2.3/Dockerfile)
+-	[`2.2.14`, `2.2`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/main/2.2/Dockerfile)
+-	[`2.1.12`, `2.1`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/main/2.1/Dockerfile)
+-	[`2.0.22`, `2.0`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/main/2.0/Dockerfile)
+-	[`1.9.16`, `1.9`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/main/1.9/Dockerfile)
+-	[`1.8.30`, `1.8`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/main/1.8/Dockerfile)
+-	[`1.7.14`, `1.7`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/main/1.7/Dockerfile)
+-	[`1.6.16`, `1.6`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/main/1.6/Dockerfile)
+-	[`1.5.19`, `1.5`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/main/1.5/Dockerfile)
 
 # Quick reference
 
@@ -27,10 +27,10 @@
   [`amd64`](https://hub.docker.com/r/amd64/haproxy/)
 
 - **Image updates**:  
-  [commits to `haproxytech/haproxy-docker-ubuntu`](https://github.com/haproxytech/haproxy-docker-ubuntu/commits/master), [top level `haproxytech/haproxy-docker-ubuntu` image folder](https://github.com/haproxytech/haproxy-docker-ubuntu)
+  [commits to `haproxytech/haproxy-docker-ubuntu`](https://github.com/haproxytech/haproxy-docker-ubuntu/commits/main), [top level `haproxytech/haproxy-docker-ubuntu` image folder](https://github.com/haproxytech/haproxy-docker-ubuntu)
 
 - **Source of this description**:  
-  [README.md](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/master/README.md)
+  [README.md](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/main/README.md)
 
 # What is HAProxy?
 
@@ -54,7 +54,7 @@ Other features include:
 
 # How to use this image
 
-This image is being shipped with a trivial sample configuration and for any real life use it should be configured according to the [extensive documentation](https://cbonte.github.io/haproxy-dconv/) and [examples](https://github.com/haproxy/haproxy/tree/master/examples). We will now show how to override shipped haproxy.cfg with one of your own.
+This image is being shipped with a trivial sample configuration and for any real life use it should be configured according to the [extensive documentation](https://cbonte.github.io/haproxy-dconv/) and [examples](https://github.com/haproxy/haproxy/tree/main/examples). We will now show how to override shipped haproxy.cfg with one of your own.
 
 ## Create a `Dockerfile`
 
@@ -129,6 +129,6 @@ $ docker run -d --name my-running-haproxy --expose 5555 -v /path/to/etc/haproxy:
 
 # License
 
-View [license information](https://raw.githubusercontent.com/haproxy/haproxy/master/LICENSE) for the software contained in this image.
+View [license information](https://raw.githubusercontent.com/haproxy/haproxy/main/LICENSE) for the software contained in this image.
 
 As with all Docker images, these likely also contain other software which may be under other licenses (such as Bash, etc from the base distribution, along with any direct or indirect dependencies of the primary software being contained).

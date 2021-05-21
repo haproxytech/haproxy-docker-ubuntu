@@ -1,7 +1,7 @@
 #!/bin/bash
 
 DOCKER_TAG="haproxytech/haproxy-ubuntu"
-HAPROXY_GITHUB_URL="https://github.com/haproxytech/haproxy-docker-ubuntu/blob/master"
+HAPROXY_GITHUB_URL="https://github.com/haproxytech/haproxy-docker-ubuntu/blob/main"
 HAPROXY_BRANCHES="1.7 1.8 1.9 2.0 2.1 2.2 2.3 2.4 2.5"
 HAPROXY_CURRENT_BRANCH="2.4"
 PUSH="no"
