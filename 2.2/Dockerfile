@@ -1,3 +1,13 @@
+FROM golang:latest AS builder
+
+ENV DATAPLANE_MINOR 2.3.1
+ENV DATAPLANE_URL https://github.com/haproxytech/dataplaneapi.git
+
+RUN git clone "${DATAPLANE_URL}" "${GOPATH}/src/github.com/haproxytech/dataplaneapi"
+RUN cd "${GOPATH}/src/github.com/haproxytech/dataplaneapi" && \
+    git checkout "v${DATAPLANE_MINOR}" && \
+    make build && cp build/dataplaneapi /dataplaneapi
+
 FROM ubuntu:focal
 
 MAINTAINER Dinko Korunic <dkorunic@haproxy.com>
@@ -13,16 +23,16 @@ ENV HAPROXY_MINOR 2.2.14
 ENV HAPROXY_SHA256 6a9b702f04b07786f3e5878de8172a727acfdfdbc1cefe1c7a438df372f2fb61
 ENV HAPROXY_SRC_URL http://www.haproxy.org/download
 
-ENV DATAPLANE_MINOR 2.3.1
-ENV DATAPLANE_SHA256 ec685350576898bb0a00d656f427f5da7c28043551a3e0050c1b5301547e235a
-ENV DATAPLANE_URL https://github.com/haproxytech/dataplaneapi/releases/download
-
 ENV LIBSLZ_MINOR 1.2.0
 ENV LIBSLZ_SHA256 723a8ef648ac5b30e5074c013ff61a5e5f54a5aafc9496f7dab9f6b02030bf24
 ENV LIBSLZ_URL https://github.com/wtarreau/libslz/archive/refs/tags
 
 ENV HAPROXY_UID haproxy
 ENV HAPROXY_GID haproxy
+
+ENV DEBIAN_FRONTEND noninteractive
+
+COPY --from=builder /dataplaneapi /usr/local/bin/dataplaneapi
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends procps libssl1.1 zlib1g "libpcre2-*" liblua5.3-0 libatomic1 tar curl socat ca-certificates && \
@@ -57,15 +67,8 @@ RUN apt-get update && \
     apt-get purge -y --auto-remove gcc make libc6-dev libssl-dev libpcre2-dev zlib1g-dev liblua5.3-dev && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* && \
-    curl -sfSL "${DATAPLANE_URL}/v${DATAPLANE_MINOR}/dataplaneapi_${DATAPLANE_MINOR}_Linux_x86_64.tar.gz" -o dataplane.tar.gz && \
-    echo "$DATAPLANE_SHA256 *dataplane.tar.gz" | sha256sum -c - && \
-    mkdir /tmp/dataplane && \
-    tar -xzf dataplane.tar.gz -C /tmp/dataplane --strip-components=1 && \
-    rm -f dataplane.tar.gz && \
-    mv /tmp/dataplane/dataplaneapi /usr/local/bin/dataplaneapi && \
     chmod +x /usr/local/bin/dataplaneapi && \
     ln -s /usr/local/bin/dataplaneapi /usr/bin/dataplaneapi && \
-    rm -rf /tmp/dataplane && \
     touch /usr/local/etc/haproxy/dataplaneapi.hcl && \
     chown "$HAPROXY_UID:$HAPROXY_GID" /usr/local/etc/haproxy/dataplaneapi.hcl
 

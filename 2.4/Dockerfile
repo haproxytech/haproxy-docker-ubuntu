@@ -1,3 +1,13 @@
+FROM golang:latest AS builder
+
+ENV DATAPLANE_MINOR 2.3.1
+ENV DATAPLANE_URL https://github.com/haproxytech/dataplaneapi.git
+
+RUN git clone "${DATAPLANE_URL}" "${GOPATH}/src/github.com/haproxytech/dataplaneapi"
+RUN cd "${GOPATH}/src/github.com/haproxytech/dataplaneapi" && \
+    git checkout "v${DATAPLANE_MINOR}" && \
+    make build && cp build/dataplaneapi /dataplaneapi
+
 FROM ubuntu:focal
 
 MAINTAINER Dinko Korunic <dkorunic@haproxy.com>
@@ -13,12 +23,12 @@ ENV HAPROXY_MINOR 2.4.0
 ENV HAPROXY_SHA256 0a6962adaf5a1291db87e3eb4ddf906a72fed535dbd2255b164b7d8394a53640
 ENV HAPROXY_SRC_URL http://www.haproxy.org/download
 
-ENV DATAPLANE_MINOR 2.3.1
-ENV DATAPLANE_SHA256 ec685350576898bb0a00d656f427f5da7c28043551a3e0050c1b5301547e235a
-ENV DATAPLANE_URL https://github.com/haproxytech/dataplaneapi/releases/download
-
 ENV HAPROXY_UID haproxy
 ENV HAPROXY_GID haproxy
+
+ENV DEBIAN_FRONTEND noninteractive
+
+COPY --from=builder /dataplaneapi /usr/local/bin/dataplaneapi
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends procps libssl1.1 zlib1g "libpcre2-*" liblua5.3-0 libatomic1 tar curl socat ca-certificates && \
@@ -45,15 +55,8 @@ RUN apt-get update && \
     apt-get purge -y --auto-remove gcc make libc6-dev libssl-dev libpcre2-dev zlib1g-dev liblua5.3-dev && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* && \
-    curl -sfSL "${DATAPLANE_URL}/v${DATAPLANE_MINOR}/dataplaneapi_${DATAPLANE_MINOR}_Linux_x86_64.tar.gz" -o dataplane.tar.gz && \
-    echo "$DATAPLANE_SHA256 *dataplane.tar.gz" | sha256sum -c - && \
-    mkdir /tmp/dataplane && \
-    tar -xzf dataplane.tar.gz -C /tmp/dataplane --strip-components=1 && \
-    rm -f dataplane.tar.gz && \
-    mv /tmp/dataplane/dataplaneapi /usr/local/bin/dataplaneapi && \
     chmod +x /usr/local/bin/dataplaneapi && \
     ln -s /usr/local/bin/dataplaneapi /usr/bin/dataplaneapi && \
-    rm -rf /tmp/dataplane && \
     touch /usr/local/etc/haproxy/dataplaneapi.hcl && \
     chown "$HAPROXY_UID:$HAPROXY_GID" /usr/local/etc/haproxy/dataplaneapi.hcl
 
