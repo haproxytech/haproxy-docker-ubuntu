@@ -15,12 +15,12 @@ MAINTAINER Dinko Korunic <dkorunic@haproxy.com>
 LABEL Name HAProxy
 LABEL Release Community Edition
 LABEL Vendor HAProxy
-LABEL Version 2.0.22
+LABEL Version 2.0.23
 LABEL RUN /usr/bin/docker -d IMAGE
 
 ENV HAPROXY_BRANCH 2.0
-ENV HAPROXY_MINOR 2.0.22
-ENV HAPROXY_SHA256 5e1dccf30a3ad782d1e3298cc4e4955b168e4aa06cad4e3ea1c0334cdc0f966d
+ENV HAPROXY_MINOR 2.0.23
+ENV HAPROXY_SHA256 5ddc04e9040a07c647fa4b68fc9da6ec36063d56e12824b356e770dcf677c87a
 ENV HAPROXY_SRC_URL http://www.haproxy.org/download
 
 ENV LIBSLZ_MINOR 1.2.0
