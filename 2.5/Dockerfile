@@ -1,6 +1,6 @@
 FROM golang:latest AS builder
 
-ENV DATAPLANE_MINOR 2.3.5
+ENV DATAPLANE_MINOR 2.3.6
 ENV DATAPLANE_URL https://github.com/haproxytech/dataplaneapi.git
 
 RUN git clone "${DATAPLANE_URL}" "${GOPATH}/src/github.com/haproxytech/dataplaneapi"
