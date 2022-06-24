@@ -1,6 +1,6 @@
 # Supported tags and respective `Dockerfile` links
 
--	[`2.7-dev0`, `2.7`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/main/2.7/Dockerfile)
+-	[`2.7-dev1`, `2.7`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/main/2.7/Dockerfile)
 -	[`2.6.1`, `2.6`, `latest`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/main/2.6/Dockerfile)
 -	[`2.5.7`, `2.5`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/main/2.5/Dockerfile)
 -	[`2.4.17`, `2.4`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/main/2.4/Dockerfile)
