@@ -5,7 +5,7 @@
 -	[`2.5.8`, `2.5`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/main/2.5/Dockerfile)
 -	[`2.4.18`, `2.4`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/main/2.4/Dockerfile)
 -	[`2.3.21`, `2.3`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/main/2.3/Dockerfile)
--	[`2.2.24`, `2.2`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/main/2.2/Dockerfile)
+-	[`2.2.25`, `2.2`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/main/2.2/Dockerfile)
 -	[`2.1.12`, `2.1`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/main/2.1/Dockerfile)
 -	[`2.0.29`, `2.0`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/main/2.0/Dockerfile)
 -	[`1.9.16`, `1.9`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/main/1.9/Dockerfile)
