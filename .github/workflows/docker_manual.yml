@@ -6,11 +6,11 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        branch: ["1.7", "1.8", "1.9", "2.0", "2.1", "2.2", "2.3", "2.4", "2.5", "2.6", "2.7"]
+        branch: ["1.7", "1.8", "1.9", "2.0", "2.1", "2.2", "2.3", "2.4", "2.5", "2.6", "2.7", "2.8"]
     env:
       DOCKER_PLATFORMS: linux/amd64,linux/arm/v7,linux/arm64
       DOCKER_IMAGE: haproxytech/haproxy-ubuntu
-      STABLE_BRANCH: "2.6"
+      STABLE_BRANCH: "2.7"
     steps:
       - name: Login to Docker Hub
         id: login

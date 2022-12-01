@@ -10,7 +10,7 @@ jobs:
     env:
       DOCKER_PLATFORMS: linux/amd64,linux/arm/v7,linux/arm64
       DOCKER_IMAGE: haproxytech/haproxy-ubuntu
-      STABLE_BRANCH: "2.6"
+      STABLE_BRANCH: "2.7"
     steps:
       - name: Login to Docker Hub
         id: login
