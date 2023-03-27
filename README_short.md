@@ -1,7 +1,7 @@
 # Quick reference
 
 - **Where to get help**:  
-  [HAProxy mailing list](mailto:haproxy@formilux.org), [HAProxy Community Slack](https://slack.haproxy.org/) or [#haproxy on FreeNode](irc://chat.freenode.net:6697/haproxy)
+  [HAProxy mailing list](mailto:haproxy@formilux.org), [HAProxy Community Slack](https://slack.haproxy.org/) or [#haproxy on Libera.chat](irc://irc.libera.chat/%23haproxy)
 
 - **Where to file issues**:  
   [https://github.com/haproxytech/haproxy-docker-ubuntu/issues](https://github.com/haproxytech/haproxy-docker-ubuntu/issues)
@@ -10,7 +10,7 @@
   [HAProxy Technologies](https://github.com/haproxytech)
 
 - **Supported architectures**: ([more info](https://github.com/docker-library/official-images#architectures-other-than-amd64))  
-  [`amd64`](https://hub.docker.com/r/amd64/haproxy/)
+  `linux/amd64`, `linux/arm64`. `linux/arm/v7`
 
 - **Image updates**:  
   [commits to `haproxytech/haproxy-docker-ubuntu`](https://github.com/haproxytech/haproxy-docker-ubuntu/commits/main), [top level `haproxytech/haproxy-docker-ubuntu` image folder](https://github.com/haproxytech/haproxy-docker-ubuntu)
@@ -45,7 +45,7 @@ This image is being shipped with a trivial sample configuration and for any real
 ## Create a `Dockerfile`
 
 ```dockerfile
-FROM haproxytech/haproxy-ubuntu:2.0
+FROM haproxytech/haproxy-ubuntu:2.7
 COPY haproxy.cfg /usr/local/etc/haproxy/haproxy.cfg
 ```
 
@@ -72,7 +72,7 @@ You will also need to publish the ports your HAProxy is listening on to the host
 ## Use volume for configuration persistency
 
 ```console
-$ docker run -d --name my-running-haproxy -v /path/to/etc/haproxy:/usr/local/etc/haproxy:ro haproxytech/haproxy-ubuntu:2.0
+$ docker run -d --name my-running-haproxy -v /path/to/etc/haproxy:/usr/local/etc/haproxy:ro haproxytech/haproxy-ubuntu:2.7
 ```
 
 Note that your host's `/path/to/etc/haproxy` folder should be populated with a file named `haproxy.cfg` as well as any other accompanying files local to `/etc/haproxy`.
@@ -89,7 +89,7 @@ To achieve seamless reloads it is required to use `expose-fd listeners` and sock
 
 ## Enable Data Plane API
 
-[Data Plane API](https://www.haproxy.com/documentation/hapee/2-2r1/reference/dataplaneapi/) sidecar is being distributed by default in all 2.0+ images and to enable it there are a few steps required:
+[Data Plane API](https://www.haproxy.com/documentation/hapee/2-7r1/api/data-plane-api/) sidecar is being distributed by default in all 2.0+ images and to enable it there are a few steps required:
 
 1. define one or more users through `userlist`
 2. enable dataplane api process through `program api`
@@ -115,6 +115,6 @@ $ docker run -d --name my-running-haproxy --expose 5555 -v /path/to/etc/haproxy:
 
 # License
 
-View [license information](https://raw.githubusercontent.com/haproxy/haproxy/main/LICENSE) for the software contained in this image.
+View [license information](https://raw.githubusercontent.com/haproxy/haproxy/master/LICENSE) for the software contained in this image.
 
 As with all Docker images, these likely also contain other software which may be under other licenses (such as Bash, etc from the base distribution, along with any direct or indirect dependencies of the primary software being contained).

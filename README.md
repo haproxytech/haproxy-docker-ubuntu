@@ -1,24 +1,17 @@
 # Supported tags and respective `Dockerfile` links
 
--	[`2.8-dev5`, `2.8`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/main/2.8/Dockerfile)
--	[`2.7.5`, `2.7`, `latest`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/main/2.7/Dockerfile)
--	[`2.6.11`, `2.6`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/main/2.6/Dockerfile)
--	[`2.5.13`, `2.5`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/main/2.5/Dockerfile)
--	[`2.4.22`, `2.4`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/main/2.4/Dockerfile)
--	[`2.3.21`, `2.3`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/main/2.3/Dockerfile)
--	[`2.2.29`, `2.2`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/main/2.2/Dockerfile)
--	[`2.1.12`, `2.1`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/main/2.1/Dockerfile)
--	[`2.0.31`, `2.0`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/main/2.0/Dockerfile)
--	[`1.9.16`, `1.9`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/main/1.9/Dockerfile)
--	[`1.8.31`, `1.8`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/main/1.8/Dockerfile)
--	[`1.7.14`, `1.7`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/main/1.7/Dockerfile)
--	[`1.6.16`, `1.6`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/main/1.6/Dockerfile)
--	[`1.5.19`, `1.5`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/main/1.5/Dockerfile)
+-	[`2.8-dev5`, `2.8`](/2.8/Dockerfile)
+-	[`2.7.5`, `2.7`](/2.7/Dockerfile)
+-	[`2.6.11`, `2.6`](/2.6/Dockerfile)
+-	[`2.5.13`, `2.5`](/2.5/Dockerfile)
+-	[`2.4.22`, `2.4`](/2.4/Dockerfile)
+-	[`2.2.29`, `2.2`](/2.2/Dockerfile)
+-	[`2.0.31`, `2.0`](/2.0/Dockerfile)
 
 # Quick reference
 
 - **Where to get help**:  
-  [HAProxy mailing list](mailto:haproxy@formilux.org), [HAProxy Community Slack](https://slack.haproxy.org/) or [#haproxy on FreeNode](irc://chat.freenode.net:6697/haproxy)
+  [HAProxy mailing list](mailto:haproxy@formilux.org), [HAProxy Community Slack](https://slack.haproxy.org/) or [#haproxy on Libera.chat](irc://irc.libera.chat/%23haproxy)
 
 - **Where to file issues**:  
   [https://github.com/haproxytech/haproxy-docker-ubuntu/issues](https://github.com/haproxytech/haproxy-docker-ubuntu/issues)
@@ -27,7 +20,7 @@
   [HAProxy Technologies](https://github.com/haproxytech)
 
 - **Supported architectures**: ([more info](https://github.com/docker-library/official-images#architectures-other-than-amd64))  
-  [`amd64`](https://hub.docker.com/r/amd64/haproxy/)
+  `linux/amd64`, `linux/arm64`. `linux/arm/v7`
 
 - **Image updates**:  
   [commits to `haproxytech/haproxy-docker-ubuntu`](https://github.com/haproxytech/haproxy-docker-ubuntu/commits/main), [top level `haproxytech/haproxy-docker-ubuntu` image folder](https://github.com/haproxytech/haproxy-docker-ubuntu)
@@ -62,7 +55,7 @@ This image is being shipped with a trivial sample configuration and for any real
 ## Create a `Dockerfile`
 
 ```dockerfile
-FROM haproxytech/haproxy-ubuntu:2.0
+FROM haproxytech/haproxy-ubuntu:2.7
 COPY haproxy.cfg /usr/local/etc/haproxy/haproxy.cfg
 ```
 
@@ -89,7 +82,7 @@ You will also need to publish the ports your HAProxy is listening on to the host
 ## Use volume for configuration persistency
 
 ```console
-$ docker run -d --name my-running-haproxy -v /path/to/etc/haproxy:/usr/local/etc/haproxy:ro haproxytech/haproxy-ubuntu:2.0
+$ docker run -d --name my-running-haproxy -v /path/to/etc/haproxy:/usr/local/etc/haproxy:ro haproxytech/haproxy-ubuntu:2.7
 ```
 
 Note that your host's `/path/to/etc/haproxy` folder should be populated with a file named `haproxy.cfg` as well as any other accompanying files local to `/etc/haproxy`.
@@ -106,7 +99,7 @@ To achieve seamless reloads it is required to use `expose-fd listeners` and sock
 
 ## Enable Data Plane API
 
-[Data Plane API](https://www.haproxy.com/documentation/hapee/2-2r1/reference/dataplaneapi/) sidecar is being distributed by default in all 2.0+ images and to enable it there are a few steps required:
+[Data Plane API](https://www.haproxy.com/documentation/hapee/2-7r1/api/data-plane-api/) sidecar is being distributed by default in all 2.0+ images and to enable it there are a few steps required:
 
 1. define one or more users through `userlist`
 2. enable dataplane api process through `program api`
@@ -132,6 +125,6 @@ $ docker run -d --name my-running-haproxy --expose 5555 -v /path/to/etc/haproxy:
 
 # License
 
-View [license information](https://raw.githubusercontent.com/haproxy/haproxy/main/LICENSE) for the software contained in this image.
+View [license information](https://raw.githubusercontent.com/haproxy/haproxy/master/LICENSE) for the software contained in this image.
 
 As with all Docker images, these likely also contain other software which may be under other licenses (such as Bash, etc from the base distribution, along with any direct or indirect dependencies of the primary software being contained).
