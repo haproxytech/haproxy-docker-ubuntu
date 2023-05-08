@@ -4,6 +4,9 @@ on:
 jobs:
   main:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     strategy:
       matrix:
         branch: ["2.0", "2.2", "2.4", "2.5", "2.6", "2.7", "2.8"]
@@ -13,11 +16,19 @@ jobs:
       STABLE_BRANCH: "2.7"
     steps:
       - name: Login to Docker Hub
-        id: login
+        id: login_docker
         uses: docker/login-action@v1
         with:
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+
+      - name: Login to Container Registry
+        id: login_ghcr
+        uses: docker/login-action@v1
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v1
@@ -69,6 +80,9 @@ jobs:
             ${{ env.DOCKER_IMAGE }}:latest
             ${{ env.DOCKER_IMAGE }}:${{ env.BUILD_BRANCH }}
             ${{ env.DOCKER_IMAGE }}:${{ env.BUILD_VER }}
+            ghcr.io/${{ github.repository }}:latest
+            ghcr.io/${{ github.repository }}:${{ env.BUILD_BRANCH }}
+            ghcr.io/${{ github.repository }}:${{ env.BUILD_VER }}
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache-new
 
@@ -93,6 +107,8 @@ jobs:
           tags: |
             ${{ env.DOCKER_IMAGE }}:${{ env.BUILD_BRANCH }}
             ${{ env.DOCKER_IMAGE }}:${{ env.BUILD_VER }}
+            ghcr.io/${{ github.repository }}:${{ env.BUILD_BRANCH }}
+            ghcr.io/${{ github.repository }}:${{ env.BUILD_VER }}
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache-new
 
