@@ -9,11 +9,11 @@ jobs:
       packages: write
     strategy:
       matrix:
-        branch: ["2.0", "2.2", "2.4", "2.5", "2.6", "2.7", "2.8"]
+        branch: ["2.0", "2.2", "2.4", "2.5", "2.6", "2.7", "2.8", "2.9"]
     env:
       DOCKER_PLATFORMS: linux/amd64,linux/arm/v7,linux/arm64
       DOCKER_IMAGE: haproxytech/haproxy-ubuntu
-      STABLE_BRANCH: "2.7"
+      STABLE_BRANCH: "2.8"
     steps:
       - name: Login to Docker Hub
         id: login_docker
