@@ -8,7 +8,7 @@ RUN cd "${GOPATH}/src/github.com/haproxytech/dataplaneapi" && \
     git checkout "v${DATAPLANE_MINOR}" && \
     make build && cp build/dataplaneapi /dataplaneapi
 
-FROM ubuntu:focal
+FROM ubuntu:jammy
 
 MAINTAINER Dinko Korunic <dkorunic@haproxy.com>
 
@@ -31,7 +31,7 @@ ENV DEBIAN_FRONTEND noninteractive
 COPY --from=builder /dataplaneapi /usr/local/bin/dataplaneapi
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends procps libssl1.1 zlib1g "libpcre2-*" liblua5.4-0 libatomic1 tar curl socat ca-certificates && \
+    apt-get install -y --no-install-recommends procps libssl3 zlib1g "libpcre2-*" liblua5.4-0 libatomic1 tar curl socat ca-certificates && \
     apt-get install -y --no-install-recommends gcc make libc6-dev libssl-dev libpcre3-dev zlib1g-dev liblua5.4-dev && \
     curl -sfSL "${HAPROXY_SRC_URL}/${HAPROXY_BRANCH}/src/devel/haproxy-${HAPROXY_MINOR}.tar.gz" -o haproxy.tar.gz && \
     echo "$HAPROXY_SHA256 *haproxy.tar.gz" | sha256sum -c - && \
