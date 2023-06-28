@@ -31,8 +31,8 @@ ENV DEBIAN_FRONTEND noninteractive
 COPY --from=builder /dataplaneapi /usr/local/bin/dataplaneapi
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends procps libssl1.1 zlib1g "libpcre2-*" liblua5.3-0 libatomic1 tar curl socat ca-certificates && \
-    apt-get install -y --no-install-recommends gcc make libc6-dev libssl-dev libpcre3-dev zlib1g-dev liblua5.3-dev && \
+    apt-get install -y --no-install-recommends procps libssl1.1 zlib1g "libpcre2-*" liblua5.4-0 libatomic1 tar curl socat ca-certificates && \
+    apt-get install -y --no-install-recommends gcc make libc6-dev libssl-dev libpcre3-dev zlib1g-dev liblua5.4-dev && \
     curl -sfSL "${HAPROXY_SRC_URL}/${HAPROXY_BRANCH}/src/haproxy-${HAPROXY_MINOR}.tar.gz" -o haproxy.tar.gz && \
     echo "$HAPROXY_SHA256 *haproxy.tar.gz" | sha256sum -c - && \
     groupadd "$HAPROXY_GID" && \
@@ -52,7 +52,7 @@ RUN apt-get update && \
     ln -s /usr/local/etc/haproxy /etc/haproxy && \
     cp -R /tmp/haproxy/examples/errorfiles /usr/local/etc/haproxy/errors && \
     rm -rf /tmp/haproxy && \
-    apt-get purge -y --auto-remove gcc make libc6-dev libssl-dev libpcre2-dev zlib1g-dev liblua5.3-dev && \
+    apt-get purge -y --auto-remove gcc make libc6-dev libssl-dev libpcre2-dev zlib1g-dev liblua5.4-dev && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* && \
     chmod +x /usr/local/bin/dataplaneapi && \
