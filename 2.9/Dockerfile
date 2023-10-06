@@ -15,12 +15,12 @@ MAINTAINER Dinko Korunic <dkorunic@haproxy.com>
 LABEL Name HAProxy
 LABEL Release Community Edition
 LABEL Vendor HAProxy
-LABEL Version 2.9-dev6
+LABEL Version 2.9-dev7
 LABEL RUN /usr/bin/docker -d IMAGE
 
 ENV HAPROXY_BRANCH 2.9
-ENV HAPROXY_MINOR 2.9-dev6
-ENV HAPROXY_SHA256 24e5f987f23babb6ee9ab6ed7cdd3f0b6d4d367cb92689110ff7ece8a9e95851
+ENV HAPROXY_MINOR 2.9-dev7
+ENV HAPROXY_SHA256 e89a6fef5be836b1f79323435be5f8dccf1317e18710fe470229bf83f941de6c
 ENV HAPROXY_SRC_URL http://www.haproxy.org/download
 
 ENV HAPROXY_UID haproxy
