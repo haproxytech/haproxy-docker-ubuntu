@@ -19,7 +19,7 @@ LABEL Version 2.5.14
 LABEL RUN /usr/bin/docker -d IMAGE
 
 ENV HAPROXY_BRANCH 2.5
-ENV HAPROXY_MINOR 2.5.14
+ENV HAPROXY_MINOR 2.5.14-old
 ENV HAPROXY_SHA256 a0a44945687de3778a5c389f64fbede7be82f1ff2645eb1cc098822af8f4652a
 ENV HAPROXY_SRC_URL http://www.haproxy.org/download
 
@@ -31,8 +31,8 @@ ENV DEBIAN_FRONTEND noninteractive
 COPY --from=builder /dataplaneapi /usr/local/bin/dataplaneapi
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends procps libssl3 zlib1g "libpcre2-*" liblua5.4-0 libatomic1 tar curl socat ca-certificates && \
-    apt-get install -y --no-install-recommends gcc make libc6-dev libssl-dev libpcre3-dev zlib1g-dev liblua5.4-dev && \
+    apt-get install -y --no-install-recommends procps libssl3 zlib1g "libpcre2-*" liblua5.4-0 libatomic1 tar curl socat ca-certificates libjemalloc2 && \
+    apt-get install -y --no-install-recommends gcc make libc6-dev libssl-dev libpcre3-dev zlib1g-dev liblua5.4-dev libjemalloc-dev && \
     curl -sfSL "${HAPROXY_SRC_URL}/${HAPROXY_BRANCH}/src/haproxy-${HAPROXY_MINOR}.tar.gz" -o haproxy.tar.gz && \
     echo "$HAPROXY_SHA256 *haproxy.tar.gz" | sha256sum -c - && \
     groupadd "$HAPROXY_GID" && \
@@ -44,6 +44,7 @@ RUN apt-get update && \
                             USE_TFO=1 USE_LINUX_TPROXY=1 USE_LUA=1 USE_GETADDRINFO=1 \
                             USE_PROMEX=1 USE_SLZ=1 \
                             USE_OPENSSL=1 USE_PTHREAD_EMULATION=1 \
+                            ADDLIB=-ljemalloc \
                             all && \
     make -C /tmp/haproxy TARGET=linux-glibc install-bin install-man && \
     ln -s /usr/local/sbin/haproxy /usr/sbin/haproxy && \
@@ -53,7 +54,7 @@ RUN apt-get update && \
     ln -s /usr/local/etc/haproxy /etc/haproxy && \
     cp -R /tmp/haproxy/examples/errorfiles /usr/local/etc/haproxy/errors && \
     rm -rf /tmp/haproxy && \
-    apt-get purge -y --auto-remove gcc make libc6-dev libssl-dev libpcre2-dev zlib1g-dev liblua5.4-dev && \
+    apt-get purge -y --auto-remove gcc make libc6-dev libssl-dev libpcre2-dev zlib1g-dev liblua5.4-dev libjemalloc-dev && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* && \
     chmod +x /usr/local/bin/dataplaneapi && \
