@@ -19,7 +19,7 @@ LABEL Version 2.9-dev8
 LABEL RUN /usr/bin/docker -d IMAGE
 
 ENV HAPROXY_BRANCH 2.9
-ENV HAPROXY_MINOR 2.9-dev8-old
+ENV HAPROXY_MINOR 2.9-dev8
 ENV HAPROXY_SHA256 4cb71352d92d863f7b79c702ca0abaad37541d54b8ab79fd8ec9d8ade16d131b
 ENV HAPROXY_SRC_URL http://www.haproxy.org/download
 
