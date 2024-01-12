@@ -3,8 +3,9 @@ FROM golang:alpine3.18 AS builder
 ENV DATAPLANE_MINOR 2.9.0
 ENV DATAPLANE_URL https://github.com/haproxytech/dataplaneapi.git
 
-RUN git clone "${DATAPLANE_URL}" "${GOPATH}/src/github.com/haproxytech/dataplaneapi"
-RUN cd "${GOPATH}/src/github.com/haproxytech/dataplaneapi" && \
+RUN apk add --no-cache ca-certificates git make && \
+    git clone "${DATAPLANE_URL}" "${GOPATH}/src/github.com/haproxytech/dataplaneapi" && \
+    cd "${GOPATH}/src/github.com/haproxytech/dataplaneapi" && \
     git checkout "v${DATAPLANE_MINOR}" && \
     make build && cp build/dataplaneapi /dataplaneapi
 
