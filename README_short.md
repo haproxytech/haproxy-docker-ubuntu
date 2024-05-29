@@ -45,7 +45,7 @@ This image is being shipped with a trivial sample configuration and for any real
 ## Create a `Dockerfile`
 
 ```dockerfile
-FROM haproxytech/haproxy-ubuntu:2.7
+FROM haproxytech/haproxy-ubuntu:3.0
 COPY haproxy.cfg /usr/local/etc/haproxy/haproxy.cfg
 ```
 
@@ -72,7 +72,7 @@ You will also need to publish the ports your HAProxy is listening on to the host
 ## Use volume for configuration persistency
 
 ```console
-$ docker run -d --name my-running-haproxy -v /path/to/etc/haproxy:/usr/local/etc/haproxy:ro haproxytech/haproxy-ubuntu:2.7
+$ docker run -d --name my-running-haproxy -v /path/to/etc/haproxy:/usr/local/etc/haproxy:ro haproxytech/haproxy-ubuntu:3.0
 ```
 
 Note that your host's `/path/to/etc/haproxy` folder should be populated with a file named `haproxy.cfg` as well as any other accompanying files local to `/etc/haproxy`.

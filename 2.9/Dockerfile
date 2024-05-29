@@ -9,7 +9,7 @@ RUN apk add --no-cache ca-certificates git make && \
     git checkout "v${DATAPLANE_MINOR}" && \
     make build && cp build/dataplaneapi /dataplaneapi
 
-FROM ubuntu:jammy
+FROM ubuntu:noble
 
 MAINTAINER Dinko Korunic <dkorunic@haproxy.com>
 

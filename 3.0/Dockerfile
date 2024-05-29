@@ -9,7 +9,7 @@ RUN apk add --no-cache ca-certificates git make && \
     git checkout "v${DATAPLANE_MINOR}" && \
     make build && cp build/dataplaneapi /dataplaneapi
 
-FROM ubuntu:jammy
+FROM ubuntu:noble
 
 MAINTAINER Dinko Korunic <dkorunic@haproxy.com>
 
@@ -20,7 +20,7 @@ LABEL Version 3.0.0
 LABEL RUN /usr/bin/docker -d IMAGE
 
 ENV HAPROXY_BRANCH 3.0
-ENV HAPROXY_MINOR 3.0.0
+ENV HAPROXY_MINOR 3.0.0-dev
 ENV HAPROXY_SHA256 5aad97416216d2cd9dd212eb674839c40cd387f60fbc4b13d7ea3f1e5664a814
 ENV HAPROXY_SRC_URL http://www.haproxy.org/download
 
@@ -34,7 +34,7 @@ COPY --from=builder /dataplaneapi /usr/local/bin/dataplaneapi
 RUN apt-get update && \
     apt-get install -y --no-install-recommends procps libssl3 zlib1g "libpcre2-*" liblua5.4-0 libatomic1 tar curl socat ca-certificates libjemalloc2 && \
     apt-get install -y --no-install-recommends gcc make libc6-dev libssl-dev libpcre3-dev zlib1g-dev liblua5.4-dev libjemalloc-dev && \
-    curl -sfSL "${HAPROXY_SRC_URL}/${HAPROXY_BRANCH}/src/devel/haproxy-${HAPROXY_MINOR}.tar.gz" -o haproxy.tar.gz && \
+    curl -sfSL "${HAPROXY_SRC_URL}/${HAPROXY_BRANCH}/src/haproxy-${HAPROXY_MINOR}.tar.gz" -o haproxy.tar.gz && \
     echo "$HAPROXY_SHA256 *haproxy.tar.gz" | sha256sum -c - && \
     groupadd "$HAPROXY_GID" && \
     useradd -g "$HAPROXY_GID" "$HAPROXY_UID" && \
