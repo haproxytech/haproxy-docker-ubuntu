@@ -1,13 +1,17 @@
 FROM golang:alpine3.20 AS builder
 
 ENV DATAPLANE_MINOR 3.0.0
+ENV DATAPLANE_V2_MINOR 2.9.6
 ENV DATAPLANE_URL https://github.com/haproxytech/dataplaneapi.git
 
 RUN apk add --no-cache ca-certificates git make && \
     git clone "${DATAPLANE_URL}" "${GOPATH}/src/github.com/haproxytech/dataplaneapi" && \
     cd "${GOPATH}/src/github.com/haproxytech/dataplaneapi" && \
     git checkout "v${DATAPLANE_MINOR}" && \
-    make build && cp build/dataplaneapi /dataplaneapi
+    make build && cp build/dataplaneapi /dataplaneapi && \
+    make clean && \
+    git checkout "v${DATAPLANE_V2_MINOR}" && \
+    make build && cp build/dataplaneapi /dataplaneapi-v2
 
 FROM ubuntu:noble
 
@@ -30,6 +34,7 @@ ENV HAPROXY_GID haproxy
 ENV DEBIAN_FRONTEND noninteractive
 
 COPY --from=builder /dataplaneapi /usr/local/bin/dataplaneapi
+COPY --from=builder /dataplaneapi-v2 /usr/local/bin/dataplaneapi-v2
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends procps libssl3t64 zlib1g "libpcre2-*" liblua5.4-0 libatomic1 tar curl socat ca-certificates libjemalloc2 && \
@@ -61,6 +66,8 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/* && \
     chmod +x /usr/local/bin/dataplaneapi && \
     ln -s /usr/local/bin/dataplaneapi /usr/bin/dataplaneapi && \
+    chmod +x /usr/local/bin/dataplaneapi-v2 && \
+    ln -s /usr/local/bin/dataplaneapi-v2 /usr/bin/dataplaneapi-v2 && \
     touch /usr/local/etc/haproxy/dataplaneapi.yml && \
     chown "$HAPROXY_UID:$HAPROXY_GID" /usr/local/etc/haproxy/dataplaneapi.yml
 
