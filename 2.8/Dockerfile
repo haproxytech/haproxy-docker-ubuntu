@@ -1,7 +1,7 @@
 FROM golang:alpine3.20 AS builder
 
-ENV DATAPLANE_MINOR 3.0.2
-ENV DATAPLANE_V2_MINOR 2.9.7
+ENV DATAPLANE_MINOR 3.0.3
+ENV DATAPLANE_V2_MINOR 2.9.8
 ENV DATAPLANE_URL https://github.com/haproxytech/dataplaneapi.git
 
 RUN apk add --no-cache ca-certificates git make && \
