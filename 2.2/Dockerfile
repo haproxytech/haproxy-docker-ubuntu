@@ -1,4 +1,4 @@
-FROM golang:alpine3.20 AS builder
+FROM golang:alpine AS builder
 
 ENV DATAPLANE_MINOR 3.0.3
 ENV DATAPLANE_V2_MINOR 2.9.8
