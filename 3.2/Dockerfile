@@ -1,7 +1,7 @@
 FROM golang:alpine AS builder
 
 ENV DATAPLANE_MINOR 3.0.4
-ENV DATAPLANE_V2_MINOR 2.9.8
+ENV DATAPLANE_V2_MINOR 2.9.9
 ENV DATAPLANE_URL https://github.com/haproxytech/dataplaneapi.git
 
 RUN apk add --no-cache ca-certificates git make && \
@@ -20,12 +20,12 @@ MAINTAINER Dinko Korunic <dkorunic@haproxy.com>
 LABEL Name HAProxy
 LABEL Release Community Edition
 LABEL Vendor HAProxy
-LABEL Version 3.2-dev1
+LABEL Version 3.2-dev2
 LABEL RUN /usr/bin/docker -d IMAGE
 
 ENV HAPROXY_BRANCH 3.2
-ENV HAPROXY_MINOR 3.2-dev1
-ENV HAPROXY_SHA256 6fea62b4a1bb6f1f1c9f8ec55bd6c272913b4062a23ebf8411b6b1e2c5007a3f
+ENV HAPROXY_MINOR 3.2-dev2
+ENV HAPROXY_SHA256 fb51e6ca3ab6aed1396d1e27fe2c13822a562933b65790d0b6667423e9a3bf77
 ENV HAPROXY_SRC_URL http://www.haproxy.org/download
 
 ENV HAPROXY_UID haproxy
