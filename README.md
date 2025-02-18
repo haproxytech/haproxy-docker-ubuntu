@@ -51,7 +51,7 @@ Other features include:
 
 # How to use this image
 
-This image is being shipped with a trivial sample configuration and for any real life use it should be configured according to the [extensive documentation](https://cbonte.github.io/haproxy-dconv/) and [examples](https://github.com/haproxy/haproxy/tree/master/examples). We will now show how to override shipped haproxy.cfg with one of your own.
+This image is being shipped with a trivial sample configuration and for any real life use it should be configured according to the [extensive documentation](https://docs.haproxy.org/) and [examples](https://github.com/haproxy/haproxy/tree/master/examples). We will now show how to override shipped haproxy.cfg with one of your own.
 
 ## Create a `Dockerfile`
 
