@@ -2,8 +2,8 @@
 
 DOCKER_TAG="haproxytech/haproxy-ubuntu"
 HAPROXY_GITHUB_URL="https://github.com/haproxytech/haproxy-docker-ubuntu/blob/main"
-HAPROXY_BRANCHES="2.2 2.4 2.6 2.8 2.9 3.0 3.1 3.2"
-HAPROXY_CURRENT_BRANCH="3.1"
+HAPROXY_BRANCHES="2.2 2.4 2.6 2.8 2.9 3.0 3.1 3.2 3.3"
+HAPROXY_CURRENT_BRANCH="3.2"
 PUSH="no"
 HAPROXY_UPDATED=""
 
