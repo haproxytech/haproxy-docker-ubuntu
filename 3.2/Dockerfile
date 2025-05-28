@@ -1,6 +1,6 @@
 FROM golang:alpine AS builder
 
-ENV DATAPLANE_MINOR 3.1.5
+ENV DATAPLANE_MINOR 3.2.0
 ENV DATAPLANE_V2_MINOR 2.9.13
 ENV DATAPLANE_URL https://github.com/haproxytech/dataplaneapi.git
 
@@ -24,7 +24,7 @@ LABEL Version 3.2.0
 LABEL RUN /usr/bin/docker -d IMAGE
 
 ENV HAPROXY_BRANCH 3.2
-ENV HAPROXY_MINOR 3.2.0-old
+ENV HAPROXY_MINOR 3.2.0
 ENV HAPROXY_SHA256 f762ae31bca1b51feb89e4395e36e17f867c25372a10853c70d292c3dd17b7b0
 ENV HAPROXY_SRC_URL http://www.haproxy.org/download
 
