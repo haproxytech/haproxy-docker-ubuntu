@@ -8,7 +8,6 @@
 -	[`2.8.15`, `2.8`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/main/2.8/Dockerfile)
 -	[`2.6.22`, `2.6`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/main/2.6/Dockerfile)
 -	[`2.4.29`, `2.4`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/main/2.4/Dockerfile)
--	[`2.2.34`, `2.2`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/main/2.2/Dockerfile)
 
 # Quick reference
 
@@ -91,13 +90,11 @@ Note that your host's `/path/to/etc/haproxy` folder should be populated with a f
 
 ## Reloading config
 
-To be able to reload HAProxy configuration, you can send `SIGHUP` to the container:
+To be able to reload HAProxy configuration, you can send `SIGUSR2` to the container:
 
 ```console
-$ docker kill -s HUP my-running-haproxy
+$ docker kill -s USR2 my-running-haproxy
 ```
-
-To achieve seamless reloads it is required to use `expose-fd listeners` and socket transfers which are not enabled by default. More on this topic is in the blog post [Truly Seamless Reloads with HAProxy](https://www.haproxy.com/blog/truly-seamless-reloads-with-haproxy-no-more-hacks/).
 
 ## Enable Data Plane API
 
