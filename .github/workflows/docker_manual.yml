@@ -9,7 +9,7 @@ jobs:
       packages: write
     strategy:
       matrix:
-        branch: ["2.2", "2.4", "2.6", "2.8", "2.9", "3.0", "3.1", "3.2", "3.3"]
+        branch: ["2.4", "2.6", "2.8", "2.9", "3.0", "3.1", "3.2", "3.3"]
     env:
       DOCKER_PLATFORMS: linux/amd64,linux/arm/v7,linux/arm64
       DOCKER_IMAGE: haproxytech/haproxy-ubuntu
