@@ -33,7 +33,7 @@ Other features include:
 - gRPC support
 - Lua scripting
 - DNS service discovery
-- Automatic retries of failed conenctions
+- Automatic retries of failed connections
 - Verbose logging
 
 ![logo](https://www.haproxy.org/img/HAProxyCommunityEdition_60px.png)
