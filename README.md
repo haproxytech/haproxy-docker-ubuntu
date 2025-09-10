@@ -105,9 +105,12 @@ $ docker kill -s USR2 my-running-haproxy
 3. enable haproxy.cfg to be read/write mounted in Docker, either by defining volume being r/w or by rebuilding image with your own haproxy.cfg
 4. expose dataplane TCP port in Docker with `--expose`
 
-Relevant part of haproxy.cfg is below:
+Relevant part of haproxy.cfg is below (before haproxy 3.3):
 
 ```
+global
+    #expose-deprecated-directives # uncomment for use with haproxy version 3.1 / 3.2
+
 userlist haproxy-dataplaneapi
     user admin insecure-password mypassword
 
