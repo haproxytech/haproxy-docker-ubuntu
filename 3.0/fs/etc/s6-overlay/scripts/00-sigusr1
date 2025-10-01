@@ -1,0 +1,29 @@
+#!/command/with-contenv sh
+
+SERVICE_DIRS="/run/s6-rc/servicedirs"
+SVSCAN_PATH="/run/s6/basedir/run-image/service/.s6-svscan"
+
+# we don't need graceful restart, so propagate as SIGTERM
+if [ -z "${USE_SIGUSR1}" ]; then
+    cat > "${SVSCAN_PATH}/SIGUSR1" <<EOF
+#!/bin/sh
+kill -SIGTERM 1
+EOF
+    chmod +x "${SVSCAN_PATH}/SIGUSR1"
+    rm -f "${SVSCAN_PATH}/SIGTERM"
+    exit
+fi
+
+# install SIGTERM handler
+cat > "${SVSCAN_PATH}/SIGTERM" <<EOF
+#!/bin/sh
+/package/admin/s6/command/s6-svc -O "${SERVICE_DIRS}/dataplaneapi"
+/package/admin/s6/command/s6-svc -d "${SERVICE_DIRS}/dataplaneapi"
+/package/admin/s6/command/s6-svc -O "${SERVICE_DIRS}/haproxy"
+/package/admin/s6/command/s6-svc -wd -1 "${SERVICE_DIRS}/haproxy"
+/run/s6/basedir/bin/halt
+EOF
+
+# use the same handler for native SIGUSR1
+cp "${SVSCAN_PATH}/SIGTERM" "${SVSCAN_PATH}/SIGUSR1"
+chmod +x "${SVSCAN_PATH}/SIGTERM" "${SVSCAN_PATH}/SIGUSR1"

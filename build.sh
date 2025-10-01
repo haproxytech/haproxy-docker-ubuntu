@@ -60,15 +60,15 @@ for i in $(awk '/^ENV HAPROXY_MINOR/ {print $NF}' */Dockerfile| sort -n -r); do
         short=$(echo $i | cut -d. -f1-2 |cut -d- -f1)
         if [ "$short" = "$HAPROXY_CURRENT_BRANCH" ]; then
                 if [ "$short" = "$i" ]; then
-                        final="-\t[\`$i\`, \`latest\`]($HAPROXY_GITHUB_URL/$short/Dockerfile)"
+                        final="-\t[\`$i\`, \`s6-$i\`, \`latest\`]($HAPROXY_GITHUB_URL/$short/Dockerfile)"
                 else
-                        final="-\t[\`$i\`, \`$short\`, \`latest\`]($HAPROXY_GITHUB_URL/$short/Dockerfile)"
+                        final="-\t[\`$i\`, \`s6-$i\`, \`$short\`, \`s6-$short\`, \`latest\`]($HAPROXY_GITHUB_URL/$short/Dockerfile)"
                 fi
         else
                 if [ "$short" = "$i" ]; then
-                        final="-\t[\`$i\`]($HAPROXY_GITHUB_URL/$short/Dockerfile)"
+                        final="-\t[\`$i\`, \`s6-$i\`]($HAPROXY_GITHUB_URL/$short/Dockerfile)"
                 else
-                        final="-\t[\`$i\`, \`$short\`]($HAPROXY_GITHUB_URL/$short/Dockerfile)"
+                        final="-\t[\`$i\`, \`s6-$i\`, \`$short\`, \`s6-$short\`]($HAPROXY_GITHUB_URL/$short/Dockerfile)"
                 fi
         fi
         echo -e "$final" >> README.md

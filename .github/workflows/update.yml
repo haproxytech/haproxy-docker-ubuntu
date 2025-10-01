@@ -7,7 +7,7 @@ on:
 
 jobs:
   main:
-    runs-on: ubuntu-22.04
+    runs-on: large_runner
     steps:
       - name: Check out repo
         id: checkout

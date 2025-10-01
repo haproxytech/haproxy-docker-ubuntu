@@ -1,0 +1,99 @@
+FROM ubuntu:noble
+
+MAINTAINER Dinko Korunic <dkorunic@haproxy.com>
+
+LABEL Name HAProxy
+LABEL Release Community Edition
+LABEL Vendor HAProxy
+LABEL Version 3.2.5
+LABEL RUN /usr/bin/docker -d IMAGE
+
+ENV HAPROXY_BRANCH 3.2
+ENV HAPROXY_MINOR 3.2.5
+ENV HAPROXY_SHA256 77316a3e1b6c39245bc11ef58f4d6dadd063c014c1baec8f0d81798c519e072b
+ENV HAPROXY_SRC_URL http://www.haproxy.org/download
+
+ENV HAPROXY_UID haproxy
+ENV HAPROXY_GID haproxy
+
+ENV DEBIAN_FRONTEND noninteractive
+
+ENV DATAPLANE_MINOR 3.2.4
+ENV DATAPLANE_URL https://github.com/haproxytech/dataplaneapi/releases/download
+
+ARG TARGETPLATFORM
+
+ARG S6_OVERLAY_VERSION=3.2.1.0
+ENV S6_OVERLAY_VERSION $S6_OVERLAY_VERSION
+ENV S6_READ_ONLY_ROOT=1
+ENV S6_USER=haproxy
+ENV S6_GROUP=haproxy
+
+COPY /fs /
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends procps libssl3t64 zlib1g "libpcre2-*" liblua5.4-0 libatomic1 tar xz-utils curl socat ca-certificates libjemalloc2 && \
+    apt-get install -y --no-install-recommends gcc make libc6-dev libssl-dev libpcre3-dev zlib1g-dev liblua5.4-dev libjemalloc-dev && \
+    curl -sfSL "${HAPROXY_SRC_URL}/${HAPROXY_BRANCH}/src/haproxy-${HAPROXY_MINOR}.tar.gz" -o haproxy.tar.gz && \
+    echo "$HAPROXY_SHA256 *haproxy.tar.gz" | sha256sum -c - && \
+    groupadd "$HAPROXY_GID" && \
+    useradd -g "$HAPROXY_GID" "$HAPROXY_UID" && \
+    mkdir -p /tmp/haproxy && \
+    tar -xzf haproxy.tar.gz -C /tmp/haproxy --strip-components=1 && \
+    rm -f haproxy.tar.gz && \
+    make -C /tmp/haproxy -j"$(nproc)" TARGET=linux-glibc CPU=generic USE_PCRE2=1 USE_PCRE2_JIT=1 \
+                            USE_TFO=1 USE_LINUX_TPROXY=1 USE_LUA=1 USE_GETADDRINFO=1 \
+                            USE_PROMEX=1 USE_SLZ=1 \
+                            USE_OPENSSL=1 USE_PTHREAD_EMULATION=1 \
+                            USE_QUIC=1 USE_QUIC_OPENSSL_COMPAT=1 \
+                            ADDLIB=-ljemalloc \
+                            all && \
+    make -C /tmp/haproxy TARGET=linux-glibc install-bin install-man && \
+    ln -s /usr/local/sbin/haproxy /usr/sbin/haproxy && \
+    mkdir -p /var/lib/haproxy && \
+    chown "$HAPROXY_UID:$HAPROXY_GID" /var/lib/haproxy && \
+    mkdir -p /usr/local/etc/haproxy && \
+    chown "$HAPROXY_UID:$HAPROXY_GID" /usr/local/etc/haproxy && \
+    ln -s /usr/local/etc/haproxy /etc/haproxy && \
+    cp -R /tmp/haproxy/examples/errorfiles /usr/local/etc/haproxy/errors && \
+    rm -rf /tmp/haproxy && \
+    case "${TARGETPLATFORM}" in \
+        "linux/arm64")      API_ARCH=arm64      ;; \
+        "linux/amd64")      API_ARCH=x86_64     ;; \
+        "linux/arm/v6")     API_ARCH=arm        ;; \
+        "linux/arm/v7")     API_ARCH=arm        ;; \
+        *) echo "ARG TARGETPLATFORM undeclared" >&2 && exit 1 ;; \
+    esac && \
+    curl -sfSL "${DATAPLANE_URL}/v${DATAPLANE_MINOR}/dataplaneapi_${DATAPLANE_MINOR}_linux_${API_ARCH}.tar.gz" -o dataplaneapi.tar.gz && \
+    mkdir -p /tmp/dataplaneapi && \
+    tar -xzf dataplaneapi.tar.gz -C /tmp/dataplaneapi && \
+    rm -f dataplaneapi.tar.gz && \
+    cp /tmp/dataplaneapi/dataplaneapi /usr/local/bin/dataplaneapi && \
+    chown "$HAPROXY_UID:$HAPROXY_GID" /usr/local/etc/haproxy/dataplaneapi.yml && \
+    mkdir -p /usr/local/var/lib/dataplaneapi && \
+    chown "$HAPROXY_UID:$HAPROXY_GID" /usr/local/var/lib/dataplaneapi && \
+    ln -s /usr/local/var/lib/dataplaneapi /var/lib/dataplaneapi && \
+    rm -rf /tmp/dataplaneapi && \
+    case "${TARGETPLATFORM}" in \
+        "linux/arm64")      S6_ARCH=aarch64      ;; \
+        "linux/amd64")      S6_ARCH=x86_64       ;; \
+        "linux/arm/v6")     S6_ARCH=arm          ;; \
+        "linux/arm/v7")     S6_ARCH=armhf        ;; \
+        *) echo "ARG TARGETPLATFORM undeclared" >&2 && exit 1 ;; \
+    esac && \
+    curl -sS -L -o /tmp/s6-overlay-scripts.tar.xz "https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-noarch.tar.xz" && \
+    tar -C / -Jxpf /tmp/s6-overlay-scripts.tar.xz && \
+    curl -sS -L -o /tmp/s6-overlay-binaries.tar.xz "https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-${S6_ARCH}.tar.xz" && \
+    tar -C / -Jxpf /tmp/s6-overlay-binaries.tar.xz && \
+    rm -f /tmp/s6-overlay-scripts.tar.xz /tmp/s6-overlay-binaries.tar.xz && \
+    chown -R "${S6_USER}:${S6_GROUP}" /init /etc/s6-overlay && \
+    chmod u+x /init /etc/s6-overlay/scripts/* && \
+    apt-get purge -y --auto-remove gcc make libc6-dev libssl-dev libpcre2-dev zlib1g-dev liblua5.4-dev libjemalloc-dev && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+EXPOSE 80
+EXPOSE 443
+EXPOSE 5555
+
+ENTRYPOINT ["/start.sh"]
