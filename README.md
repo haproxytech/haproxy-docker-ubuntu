@@ -1,12 +1,12 @@
 # Supported tags and respective `Dockerfile` links
 
--	[`3.3-dev8`, `s6-3.3-dev8`, `3.3`, `s6-3.3`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/main/3.3/Dockerfile)
--	[`3.2.5`, `s6-3.2.5`, `3.2`, `s6-3.2`, `latest`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/main/3.2/Dockerfile)
--	[`3.1.8`, `s6-3.1.8`, `3.1`, `s6-3.1`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/main/3.1/Dockerfile)
--	[`3.0.11`, `s6-3.0.11`, `3.0`, `s6-3.0`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/main/3.0/Dockerfile)
--	[`2.8.15`, `s6-2.8.15`, `2.8`, `s6-2.8`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/main/2.8/Dockerfile)
--	[`2.6.22`, `s6-2.6.22`, `2.6`, `s6-2.6`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/main/2.6/Dockerfile)
--	[`2.4.29`, `s6-2.4.29`, `2.4`, `s6-2.4`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/main/2.4/Dockerfile)
+-	[`3.3-dev9`, `s6-3.3-dev9`, `3.3`, `s6-3.3`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/main/3.3/Dockerfile)
+-	[`3.2.6`, `s6-3.2.6`, `3.2`, `s6-3.2`, `latest`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/main/3.2/Dockerfile)
+-	[`3.1.9`, `s6-3.1.9`, `3.1`, `s6-3.1`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/main/3.1/Dockerfile)
+-	[`3.0.12`, `s6-3.0.12`, `3.0`, `s6-3.0`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/main/3.0/Dockerfile)
+-	[`2.8.16`, `s6-2.8.16`, `2.8`, `s6-2.8`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/main/2.8/Dockerfile)
+-	[`2.6.23`, `s6-2.6.23`, `2.6`, `s6-2.6`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/main/2.6/Dockerfile)
+-	[`2.4.30`, `s6-2.4.30`, `2.4`, `s6-2.4`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/main/2.4/Dockerfile)
 
 # Quick reference
 
