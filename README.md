@@ -1,7 +1,8 @@
 # Supported tags and respective `Dockerfile` links
 
--	[`3.3.0`, `s6-3.3.0`, `3.3`, `s6-3.3`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/main/3.3/Dockerfile)
--	[`3.2.9`, `s6-3.2.9`, `3.2`, `s6-3.2`, `latest`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/main/3.2/Dockerfile)
+-	[`3.4-dev0`, `s6-3.4-dev0`, `3.4`, `s6-3.4`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/main/3.4/Dockerfile)
+-	[`3.3.0`, `s6-3.3.0`, `3.3`, `s6-3.3`, `latest`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/main/3.3/Dockerfile)
+-	[`3.2.9`, `s6-3.2.9`, `3.2`, `s6-3.2`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/main/3.2/Dockerfile)
 -	[`3.1.10`, `s6-3.1.10`, `3.1`, `s6-3.1`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/main/3.1/Dockerfile)
 -	[`3.0.12`, `s6-3.0.12`, `3.0`, `s6-3.0`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/main/3.0/Dockerfile)
 -	[`2.8.16`, `s6-2.8.16`, `2.8`, `s6-2.8`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/main/2.8/Dockerfile)
@@ -97,29 +98,7 @@ $ docker kill -s USR2 my-running-haproxy
 
 ## Enable Data Plane API
 
-[Data Plane API](https://www.haproxy.com/documentation/hapee/2-7r1/api/data-plane-api/) sidecar is being distributed by default in all 2.0+ images and to enable it there are a few steps required:
-
-1. define one or more users through `userlist`
-2. enable dataplane api process through `program api`
-3. enable haproxy.cfg to be read/write mounted in Docker, either by defining volume being r/w or by rebuilding image with your own haproxy.cfg
-4. expose dataplane TCP port in Docker with `--expose`
-
-Relevant part of haproxy.cfg is below:
-
-```
-userlist haproxy-dataplaneapi
-    user admin insecure-password mypassword
-
-program api
-   command /usr/bin/dataplaneapi --host 0.0.0.0 --port 5555 --haproxy-bin /usr/sbin/haproxy --config-file /usr/local/etc/haproxy/haproxy.cfg --reload-cmd "kill -SIGUSR2 1" --restart-cmd "kill -SIGUSR2 1" --reload-delay 5 --userlist haproxy-dataplaneapi
-   no option start-on-reload
-```
-
-To run such image we would use the following command (note that volume containing haproxy.cfg is mounted r/w and port tcp/5555 is being exposed):
-
-```console
-$ docker run -d --name my-running-haproxy --expose 5555 -v /path/to/etc/haproxy:/usr/local/etc/haproxy:rw haproxytech/haproxy-ubuntu
-```
+To use Data Plane API it is easiest to use s6-tagged images which all have Data Plane API running by default.
 
 # License
 
