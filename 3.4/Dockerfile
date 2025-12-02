@@ -16,9 +16,9 @@ RUN apt-get update && \
 
 FROM ubuntu:noble AS hapce-builder
 
-ENV HAPROXY_BRANCH 3.2
-ENV HAPROXY_MINOR 3.2.9
-ENV HAPROXY_SHA256 e660d141b29019f4d198785b0834cc3e9c96efceeb807c2fff2fc935bd3354c2
+ENV HAPROXY_BRANCH 3.4
+ENV HAPROXY_MINOR 3.4-dev0
+ENV HAPROXY_SHA256 05e40bd9690b250ba35147f46a0cc3fa0355eb8413958a5a695149fd2f837f5e
 ENV HAPROXY_SRC_URL http://www.haproxy.org/download
 
 COPY --from=awslc-builder /opt/aws-lc /opt/aws-lc
@@ -29,7 +29,7 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends procps libssl3t64 zlib1g "libpcre2-*" liblua5.4-0 libatomic1 tar curl socat ca-certificates libjemalloc2 && \
     apt-get install -y --no-install-recommends gcc make libc6-dev libssl-dev libpcre3-dev zlib1g-dev liblua5.4-dev libjemalloc-dev && \
     c_rehash && \
-    curl -sfSL "${HAPROXY_SRC_URL}/${HAPROXY_BRANCH}/src/haproxy-${HAPROXY_MINOR}.tar.gz" -o haproxy.tar.gz && \
+    curl -sfSL "${HAPROXY_SRC_URL}/${HAPROXY_BRANCH}/src/devel/haproxy-${HAPROXY_MINOR}.tar.gz" -o haproxy.tar.gz && \
     echo "$HAPROXY_SHA256 *haproxy.tar.gz" | sha256sum -c - && \
     mkdir -p /tmp/haproxy && \
     tar -xzf haproxy.tar.gz -C /tmp/haproxy --strip-components=1 && \
@@ -51,12 +51,12 @@ MAINTAINER Dinko Korunic <dkorunic@haproxy.com>
 LABEL Name HAProxy
 LABEL Release Community Edition
 LABEL Vendor HAProxy
-LABEL Version 3.2.9
+LABEL Version 3.4-dev0
 LABEL RUN /usr/bin/docker -d IMAGE
 
-ENV HAPROXY_BRANCH 3.2
-ENV HAPROXY_MINOR 3.2.9
-ENV HAPROXY_SHA256 e660d141b29019f4d198785b0834cc3e9c96efceeb807c2fff2fc935bd3354c2
+ENV HAPROXY_BRANCH 3.4
+ENV HAPROXY_MINOR 3.4-dev0
+ENV HAPROXY_SHA256 05e40bd9690b250ba35147f46a0cc3fa0355eb8413958a5a695149fd2f837f5e
 ENV HAPROXY_SRC_URL http://www.haproxy.org/download
 
 ENV HAPROXY_UID haproxy

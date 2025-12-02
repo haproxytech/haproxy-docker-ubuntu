@@ -2,8 +2,8 @@
 
 DOCKER_TAG="haproxytech/haproxy-ubuntu"
 HAPROXY_GITHUB_URL="https://github.com/haproxytech/haproxy-docker-ubuntu/blob/main"
-HAPROXY_BRANCHES="2.4 2.6 2.8 3.0 3.1 3.2 3.3"
-HAPROXY_CURRENT_BRANCH="3.2"
+HAPROXY_BRANCHES="2.4 2.6 2.8 3.0 3.1 3.2 3.3 3.4"
+HAPROXY_CURRENT_BRANCH="3.3"
 PUSH="no"
 HAPROXY_UPDATED=""
 
@@ -11,13 +11,13 @@ for i in $HAPROXY_BRANCHES; do
     echo "Building HAProxy $i"
 
     DOCKERFILE="$i/Dockerfile"
-    HAPROXY_MINOR_OLD=$(awk '/^ENV HAPROXY_MINOR/ {print $NF}' "$DOCKERFILE")
-    DATAPLANE_MINOR_OLD=$(awk '/^ENV DATAPLANE_MINOR/ {print $NF}' "$DOCKERFILE")
+    HAPROXY_MINOR_OLD=$(awk '/^ENV HAPROXY_MINOR/ {print $NF; exit}' "$DOCKERFILE")
+    DATAPLANE_MINOR_OLD=$(awk '/^ENV DATAPLANE_MINOR/ {print $NF; exit}' "$DOCKERFILE")
 
     ./update.sh "$i" || continue
 
-    HAPROXY_MINOR=$(awk '/^ENV HAPROXY_MINOR/ {print $NF}' "$DOCKERFILE")
-    DATAPLANE_MINOR=$(awk '/^ENV DATAPLANE_MINOR/ {print $NF}' "$DOCKERFILE")
+    HAPROXY_MINOR=$(awk '/^ENV HAPROXY_MINOR/ {print $NF; exit}' "$DOCKERFILE")
+    DATAPLANE_MINOR=$(awk '/^ENV DATAPLANE_MINOR/ {print $NF; exit}' "$DOCKERFILE")
 
     if [ "x$1" != "xforce" ]; then
         if [ \( "$HAPROXY_MINOR_OLD" = "$HAPROXY_MINOR" \) -a \( "$DATAPLANE_MINOR_OLD" = "$DATAPLANE_MINOR" \) ]; then
@@ -56,7 +56,7 @@ if [ "$PUSH" = "no" ]; then
 fi
 
 echo -e "# Supported tags and respective \`Dockerfile\` links\n" > README.md
-for i in $(awk '/^ENV HAPROXY_MINOR/ {print $NF}' */Dockerfile| sort -n -r); do
+for i in $(awk '/^ENV HAPROXY_MINOR/ {print $NF}' */Dockerfile | sort -u -n -r); do
         short=$(echo $i | cut -d. -f1-2 |cut -d- -f1)
         if [ "$short" = "$HAPROXY_CURRENT_BRANCH" ]; then
                 if [ "$short" = "$i" ]; then
