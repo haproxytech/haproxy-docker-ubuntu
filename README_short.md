@@ -87,29 +87,7 @@ $ docker kill -s USR2 my-running-haproxy
 
 ## Enable Data Plane API
 
-[Data Plane API](https://www.haproxy.com/documentation/hapee/2-7r1/api/data-plane-api/) sidecar is being distributed by default in all 2.0+ images and to enable it there are a few steps required:
-
-1. define one or more users through `userlist`
-2. enable dataplane api process through `program api`
-3. enable haproxy.cfg to be read/write mounted in Docker, either by defining volume being r/w or by rebuilding image with your own haproxy.cfg
-4. expose dataplane TCP port in Docker with `--expose`
-
-Relevant part of haproxy.cfg is below:
-
-```
-userlist haproxy-dataplaneapi
-    user admin insecure-password mypassword
-
-program api
-   command /usr/bin/dataplaneapi --host 0.0.0.0 --port 5555 --haproxy-bin /usr/sbin/haproxy --config-file /usr/local/etc/haproxy/haproxy.cfg --reload-cmd "kill -SIGUSR2 1" --restart-cmd "kill -SIGUSR2 1" --reload-delay 5 --userlist haproxy-dataplaneapi
-   no option start-on-reload
-```
-
-To run such image we would use the following command (note that volume containing haproxy.cfg is mounted r/w and port tcp/5555 is being exposed):
-
-```console
-$ docker run -d --name my-running-haproxy --expose 5555 -v /path/to/etc/haproxy:/usr/local/etc/haproxy:rw haproxytech/haproxy-ubuntu
-```
+To use Data Plane API it is easiest to use s6-tagged images which all have Data Plane API running by default.
 
 # License
 
