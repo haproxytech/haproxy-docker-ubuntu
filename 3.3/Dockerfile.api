@@ -62,7 +62,7 @@ ENV HAPROXY_SRC_URL http://www.haproxy.org/download
 ENV HAPROXY_UID haproxy
 ENV HAPROXY_GID haproxy
 
-ENV DATAPLANE_MINOR 
+ENV DATAPLANE_MINOR 3.2.7
 ENV DATAPLANE_URL https://github.com/haproxytech/dataplaneapi/releases/download
 
 ENV DEBIAN_FRONTEND noninteractive
