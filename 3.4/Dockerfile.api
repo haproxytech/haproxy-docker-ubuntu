@@ -17,8 +17,8 @@ RUN apt-get update && \
 FROM ubuntu:noble AS hapce-builder
 
 ENV HAPROXY_BRANCH 3.4
-ENV HAPROXY_MINOR 3.4-dev1
-ENV HAPROXY_SHA256 a5422a77891d7ae160d848291f9954fc5052ae6356ed67e6000cb59d58037515
+ENV HAPROXY_MINOR 3.4-dev2
+ENV HAPROXY_SHA256 0bd125014f1f07dd32d0877f166e85b6b0d080ff4afaba664b3eaf6ef83c9cf9
 ENV HAPROXY_SRC_URL http://www.haproxy.org/download
 
 COPY --from=awslc-builder /opt/aws-lc /opt/aws-lc
@@ -51,12 +51,12 @@ MAINTAINER Dinko Korunic <dkorunic@haproxy.com>
 LABEL Name HAProxy
 LABEL Release Community Edition
 LABEL Vendor HAProxy
-LABEL Version 3.4-dev1
+LABEL Version 3.4-dev2
 LABEL RUN /usr/bin/docker -d IMAGE
 
 ENV HAPROXY_BRANCH 3.4
-ENV HAPROXY_MINOR 3.4-dev1
-ENV HAPROXY_SHA256 a5422a77891d7ae160d848291f9954fc5052ae6356ed67e6000cb59d58037515
+ENV HAPROXY_MINOR 3.4-dev2
+ENV HAPROXY_SHA256 0bd125014f1f07dd32d0877f166e85b6b0d080ff4afaba664b3eaf6ef83c9cf9
 ENV HAPROXY_SRC_URL http://www.haproxy.org/download
 
 ENV HAPROXY_UID haproxy
