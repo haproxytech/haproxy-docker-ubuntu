@@ -13,6 +13,7 @@ jobs:
     env:
       DOCKER_PLATFORMS: linux/amd64,linux/arm/v7,linux/arm64
       DOCKER_IMAGE: haproxytech/haproxy-ubuntu
+      DOCKER_IMAGE_UNIFIED: haproxytech/haproxy
       STABLE_BRANCH: "3.3"
     steps:
       - name: Login to Docker Hub
@@ -80,6 +81,9 @@ jobs:
             ${{ env.DOCKER_IMAGE }}:latest
             ${{ env.DOCKER_IMAGE }}:${{ env.BUILD_BRANCH }}
             ${{ env.DOCKER_IMAGE }}:${{ env.BUILD_VER }}
+            ${{ env.DOCKER_IMAGE_UNIFIED }}:ubuntu-latest
+            ${{ env.DOCKER_IMAGE_UNIFIED }}:ubuntu-${{ env.BUILD_BRANCH }}
+            ${{ env.DOCKER_IMAGE_UNIFIED }}:ubuntu-${{ env.BUILD_VER }}
             ghcr.io/${{ github.repository }}:latest
             ghcr.io/${{ github.repository }}:${{ env.BUILD_BRANCH }}
             ghcr.io/${{ github.repository }}:${{ env.BUILD_VER }}
@@ -114,6 +118,9 @@ jobs:
             ${{ env.DOCKER_IMAGE }}:s6-latest
             ${{ env.DOCKER_IMAGE }}:s6-${{ env.BUILD_BRANCH }}
             ${{ env.DOCKER_IMAGE }}:s6-${{ env.BUILD_VER }}
+            ${{ env.DOCKER_IMAGE_UNIFIED }}:ubuntu-s6-latest
+            ${{ env.DOCKER_IMAGE_UNIFIED }}:ubuntu-s6-${{ env.BUILD_BRANCH }}
+            ${{ env.DOCKER_IMAGE_UNIFIED }}:ubuntu-s6-${{ env.BUILD_VER }}
             ghcr.io/${{ github.repository }}:s6-latest
             ghcr.io/${{ github.repository }}:s6-${{ env.BUILD_BRANCH }}
             ghcr.io/${{ github.repository }}:s6-${{ env.BUILD_VER }}
@@ -147,6 +154,8 @@ jobs:
           tags: |
             ${{ env.DOCKER_IMAGE }}:${{ env.BUILD_BRANCH }}
             ${{ env.DOCKER_IMAGE }}:${{ env.BUILD_VER }}
+            ${{ env.DOCKER_IMAGE_UNIFIED }}:ubuntu-${{ env.BUILD_BRANCH }}
+            ${{ env.DOCKER_IMAGE_UNIFIED }}:ubuntu-${{ env.BUILD_VER }}
             ghcr.io/${{ github.repository }}:${{ env.BUILD_BRANCH }}
             ghcr.io/${{ github.repository }}:${{ env.BUILD_VER }}
           cache-from: type=local,src=/tmp/.buildx-cache
@@ -179,6 +188,8 @@ jobs:
           tags: |
             ${{ env.DOCKER_IMAGE }}:s6-${{ env.BUILD_BRANCH }}
             ${{ env.DOCKER_IMAGE }}:s6-${{ env.BUILD_VER }}
+            ${{ env.DOCKER_IMAGE_UNIFIED }}:ubuntu-s6-${{ env.BUILD_BRANCH }}
+            ${{ env.DOCKER_IMAGE_UNIFIED }}:ubuntu-s6-${{ env.BUILD_VER }}
             ghcr.io/${{ github.repository }}:s6-${{ env.BUILD_BRANCH }}
             ghcr.io/${{ github.repository }}:s6-${{ env.BUILD_VER }}
           cache-from: type=local,src=/tmp/.buildx-cache
