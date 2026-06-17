@@ -1,7 +1,7 @@
 FROM ubuntu:noble AS awslc-builder
 
 ENV AWSLC_URL https://github.com/aws/aws-lc.git
-ENV AWSLC_TAG v1.69.0
+ENV AWSLC_TAG v4.0.0
 
 ENV DEBIAN_FRONTEND noninteractive
 
