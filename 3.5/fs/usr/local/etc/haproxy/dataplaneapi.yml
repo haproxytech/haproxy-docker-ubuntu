@@ -23,10 +23,10 @@ haproxy:
   reload:
     reload_delay: 5
     reload_strategy: custom
-    reload_cmd: /package/admin/s6/command/s6-svc -2 /run/s6-rc/servicedirs/haproxy
-    restart_cmd: /package/admin/s6/command/s6-svc -r /run/s6-rc/servicedirs/haproxy
-    stop_cmd: /package/admin/s6/command/s6-svc -d /run/s6-rc/servicedirs/haproxy
-    status_cmd: /package/admin/s6/command/s6-svstat -u /run/s6-rc/servicedirs/haproxy
+    reload_cmd: /usr/local/bin/gopherd signal haproxy USR2
+    restart_cmd: /usr/local/bin/gopherd restart haproxy
+    stop_cmd: /usr/local/bin/gopherd stop haproxy
+    status_cmd: /usr/local/bin/gopherd status haproxy
 log_targets:
   - log_to: stdout
     log_level: info

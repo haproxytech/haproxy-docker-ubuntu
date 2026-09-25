@@ -1,0 +1,71 @@
+# gopherd configuration for the HAProxy Data Plane API images.
+#
+# /start.sh runs gopherd on this file, or on gopherd-sigusr1.yml when
+# USE_SIGUSR1 is set. The Dockerfile derives that second file from this one by
+# rewriting haproxy's stop-signal and kill-delay lines, so edit only this file
+# and keep those two lines exactly as they are: the build fails if the rewrite
+# does not match. stop-signal is not template-expanded and condition-env-equals
+# cannot express "set to anything", so a whole second config is the only way
+# to switch it on USE_SIGUSR1.
+#
+# Keep `args` in block style: the parser rejects a [...] sequence that wraps
+# across lines.
+
+# Children need the container environment, as with-contenv gave them under s6.
+pass-env: true
+
+# SIGUSR1 to PID 1 stops the container just like SIGTERM, as the s6 images'
+# .s6-svscan/SIGUSR1 hook did. Whether haproxy then drains or stops at once is
+# its stop-signal below.
+init-stop-signal: [SIGTERM, SIGINT, SIGUSR1]
+
+control:
+  socket: /run/gopherd.sock
+
+processes:
+  # A failing oneshot is fatal: gopherd exits instead of starting dependents.
+  - name: dataplaneapi-config
+    command: /etc/gopherd/init/01-dataplaneapi
+    startup: oneshot
+    startup-timeout: 30s
+
+  - name: haproxy
+    command: /usr/local/sbin/haproxy
+    args:
+      - -W
+      - -db
+      - -m
+      # Two thirds of the smaller of RAM and the cgroup limit, in MiB.
+      - "{{mem 66.666667%}}"
+      - -S
+      - /var/run/haproxy-master.sock,level,admin
+      - -f
+      - /etc/haproxy/haproxy.cfg
+    # The oneshot may rewrite the userlist in haproxy.cfg.
+    after: [dataplaneapi-config]
+    # Forwarding is strict opt-in, so the identity map is what makes SIGUSR2 to
+    # the container reload haproxy. USR1 cannot be mapped: it is a stop signal.
+    signal-rewrite:
+      USR2: USR2
+    # gopherd-sigusr1.yml: SIGUSR1 and 0s. A soft stop then drains for as long
+    # as haproxy needs, as `s6-svc -wd -1` waited without a timeout; bound it
+    # with hard-stop-after in haproxy.cfg.
+    stop-signal: SIGTERM
+    kill-delay: 10s
+    on-success: restart
+    on-failure: restart
+
+  - name: dataplaneapi
+    command: /usr/local/bin/dataplaneapi
+    args:
+      - -f=/usr/local/etc/haproxy/dataplaneapi.yml
+    # Stops before haproxy on shutdown, as the s6 SIGTERM hook ordered it.
+    after: [dataplaneapi-config, haproxy]
+    # Its reload commands run the gopherd client.
+    export-socket: true
+    environment:
+      # One third of the memory budget. The suffix is required: a bare number
+      # is read as bytes.
+      GOMEMLIMIT: "{{mem 33.333334%}}MiB"
+    on-success: restart
+    on-failure: restart

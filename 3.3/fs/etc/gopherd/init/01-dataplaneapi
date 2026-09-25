@@ -1,0 +1,26 @@
+#!/bin/sh
+
+# Replace the placeholder admin passwords the image ships with. This runs
+# before haproxy starts, so the haproxy.cfg edit needs no reload.
+
+DP_CONF="/usr/local/etc/haproxy/dataplaneapi.yml"
+HAP_CONF="/usr/local/etc/haproxy/haproxy.cfg"
+
+if grep -q "password: admin" "${DP_CONF}"; then
+    echo "Generated admin password for Dataplaneapi"
+
+    PASS=$(tr -cd 'A-Za-z0-9!?%=' < /dev/urandom | head -c8)
+    sed -i "s,password: admin,password: ${PASS},g" "${DP_CONF}"
+fi
+
+if grep -q "user admin insecure-password admin" "${HAP_CONF}"; then
+    echo "Generated admin password for Dataplaneapi"
+
+    PASS=$(tr -cd 'A-Za-z0-9!?%=' < /dev/urandom | head -c8)
+    sed -i "s,user admin insecure-password admin,user admin insecure-password ${PASS},g" "${HAP_CONF}"
+fi
+
+# A failing oneshot is fatal to gopherd. The s6 run script started the Data
+# Plane API even when sed could not write (a read-only bind mount), so keep
+# that rather than refusing to boot.
+exit 0

@@ -22,4 +22,12 @@ if [ $# -gt 0 ] && [ "$(echo $1 | cut -b1-2)" != "--" ]; then
 fi
 
 export EXTRA_OPTIONS="$@"
-exec /init
+
+# Any non-empty USE_SIGUSR1 makes haproxy drain with SIGUSR1 on shutdown. That
+# is haproxy's stop-signal, which gopherd cannot template, so it selects the
+# config the Dockerfile derived for it. An explicit GOPHERD_CONFIG wins.
+if [ -n "${USE_SIGUSR1}" ] && [ -z "${GOPHERD_CONFIG}" ]; then
+    export GOPHERD_CONFIG=/etc/gopherd/gopherd-sigusr1.yml
+fi
+
+exec /usr/local/bin/gopherd

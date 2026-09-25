@@ -73,15 +73,12 @@ COPY --from=awslc-builder /opt/aws-lc /opt/aws-lc
 COPY --from=hapce-builder /usr/local/sbin/haproxy /usr/local/sbin/haproxy
 COPY --from=hapce-builder /tmp/haproxy/examples/errorfiles/ /usr/local/etc/haproxy/errors
 
-ENV S6_OVERLAY_VERSION 3.2.1.0
-ENV S6_READ_ONLY_ROOT 1
-ENV S6_USER haproxy
-ENV S6_GROUP haproxy
+ARG GOPHERD_VERSION=1.3.1
 
 COPY /fs /
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends procps libssl3t64 zlib1g "libpcre2-*" liblua5.4-0 libatomic1 tar xz-utils curl socat ca-certificates libjemalloc2 && \
+    apt-get install -y --no-install-recommends procps libssl3t64 zlib1g "libpcre2-*" liblua5.4-0 libatomic1 tar curl socat ca-certificates libjemalloc2 && \
     c_rehash && \
     groupadd "$HAPROXY_GID" && \
     useradd -g "$HAPROXY_GID" "$HAPROXY_UID" && \
@@ -118,19 +115,26 @@ RUN apt-get update && \
     ln -s /etc/ssl/certs /opt/aws-lc/ssl/certs && \
     ldconfig && \
     case "${TARGETPLATFORM}" in \
-        "linux/arm64")      S6_ARCH=aarch64      ;; \
-        "linux/amd64")      S6_ARCH=x86_64       ;; \
-        "linux/arm/v6")     S6_ARCH=arm          ;; \
-        "linux/arm/v7")     S6_ARCH=armhf        ;; \
+        "linux/arm64")      GOPHERD_ARCH=arm64      ;; \
+        "linux/amd64")      GOPHERD_ARCH=x86_64     ;; \
+        "linux/arm/v6")     GOPHERD_ARCH=armv6      ;; \
+        "linux/arm/v7")     GOPHERD_ARCH=armv7      ;; \
         *) echo "ARG TARGETPLATFORM undeclared" >&2 && exit 1 ;; \
     esac && \
-    curl -sS -L -o /tmp/s6-overlay-scripts.tar.xz "https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-noarch.tar.xz" && \
-    tar -C / -Jxpf /tmp/s6-overlay-scripts.tar.xz && \
-    curl -sS -L -o /tmp/s6-overlay-binaries.tar.xz "https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-${S6_ARCH}.tar.xz" && \
-    tar -C / -Jxpf /tmp/s6-overlay-binaries.tar.xz && \
-    rm -f /tmp/s6-overlay-scripts.tar.xz /tmp/s6-overlay-binaries.tar.xz && \
-    chown -R "${S6_USER}:${S6_GROUP}" /init /etc/s6-overlay && \
-    chmod u+x /init /etc/s6-overlay/scripts/*
+    curl -sfSL -o /tmp/gopherd.tar.gz "https://github.com/haproxytech/gopherd/releases/download/v${GOPHERD_VERSION}/gopherd_${GOPHERD_VERSION}_Linux_${GOPHERD_ARCH}.tar.gz" && \
+    tar -C /usr/local/bin -xzf /tmp/gopherd.tar.gz gopherd && \
+    chmod 0755 /usr/local/bin/gopherd && \
+    rm -f /tmp/gopherd.tar.gz && \
+    sed -e 's/^    stop-signal: SIGTERM$/    stop-signal: SIGUSR1/' \
+        -e 's/^    kill-delay: 10s$/    kill-delay: 0s/' \
+        /etc/gopherd/gopherd.yml > /etc/gopherd/gopherd-sigusr1.yml && \
+    grep -q '^    stop-signal: SIGUSR1$' /etc/gopherd/gopherd-sigusr1.yml && \
+    grep -q '^    kill-delay: 0s$' /etc/gopherd/gopherd-sigusr1.yml && \
+    mkdir -p /command /package/admin/s6/command && \
+    ln -s /usr/bin/s6-svc /command/s6-svc && \
+    ln -s /usr/bin/s6-svstat /command/s6-svstat && \
+    ln -s /usr/bin/s6-svc /package/admin/s6/command/s6-svc && \
+    ln -s /usr/bin/s6-svstat /package/admin/s6/command/s6-svstat
 
 EXPOSE 80
 EXPOSE 443

@@ -1,0 +1,138 @@
+#!/bin/sh
+#
+# s6-svstat(1) emulated on top of gopherd, the companion to the s6-svc shim.
+# A servicedir is reduced to its basename, which is the gopherd service name.
+#
+#   s6-svstat [ -uwNrpgest | -o field,... ] [ -n ] servicedir
+#
+# Everything comes from one `gopherd status <svc> -o json`, which carries
+# state, pid, uptime_seconds and enabled. Four s6 fields have no backing data
+# there, and are reported with s6's own conventions for "unavailable" rather
+# than invented: exitcode and signum give -1, signal gives NA, paused gives
+# false. gopherd keeps no post-mortem, so a service that is not up reports
+# updownfor/readyfor as 0 (and updownsince/readysince as now, consistently
+# derived from that).
+#
+# `ready` follows `up`: gopherd has no per-service readiness in its status
+# output, and a service it reports up has already satisfied whatever
+# ready-check gated it, so `-o up,ready` answers "true true" for a live
+# service instead of the "true false" a missing notification-fd would give
+# under s6.
+#
+# Exit codes follow s6-svstat, which differ from s6-svc: 1 (not supervised
+# here: no such gopherd service), 100 usage, 111 system call failure.
+
+# Overridable so the translation can be exercised against a stub.
+GOPHERD=${GOPHERD:-/usr/local/bin/gopherd}
+
+EX_NOSVC=1
+EX_USAGE=100
+EX_SYS=111
+
+fields=                           # requested field names, in order
+human=1                           # no field options given: print the summary
+
+die_usage() {
+    echo "s6-svstat: usage: $*" >&2
+    exit "$EX_USAGE"
+}
+
+add_field() { fields="${fields}${fields:+ }$1"; human=0; }
+
+while getopts 'uwNrpgestno:' opt; do
+    case $opt in
+        u) add_field up         ;;
+        w) add_field wantedup   ;;
+        N) add_field normallyup ;;
+        r) add_field ready      ;;
+        p) add_field pid        ;;
+        g) add_field pgid       ;;
+        e) add_field exitcode   ;;
+        s) add_field signal     ;;
+        t) add_field updownfor  ;;
+        # -n only selects a signal number over a name in the summary, and no
+        # signal is ever available here, so it changes nothing.
+        n) ;;
+        o)
+            IFS=,
+            for f in $OPTARG; do
+                case $f in
+                    up|wantedup|normallyup|ready|paused|pid|pgid|exitcode|\
+                    signal|signum|updownsince|readysince|updownfor|readyfor)
+                        add_field "$f" ;;
+                    *) unset IFS; die_usage "-o: unknown field: $f" ;;
+                esac
+            done
+            unset IFS
+            ;;
+        ?) exit "$EX_USAGE" ;;
+    esac
+done
+shift $((OPTIND - 1))
+
+[ $# -eq 1 ] || die_usage "s6-svstat [options] servicedir"
+
+svc=$(basename -- "$1")
+[ -n "$svc" ] && [ "$svc" != / ] || die_usage "bad servicedir: $1"
+
+command -v "$GOPHERD" >/dev/null 2>&1 || {
+    echo "s6-svstat: $GOPHERD not found" >&2
+    exit "$EX_SYS"
+}
+
+json=$("$GOPHERD" status "$svc" -o json 2>&1) || {
+    echo "s6-svstat: $svc: $json" >&2
+    case $json in
+        *'unknown service'*) exit "$EX_NOSVC" ;;
+        *) exit "$EX_SYS" ;;
+    esac
+}
+
+jnum() { echo "$json" | sed -n "s/.*\"$1\":\([0-9-]*\).*/\1/p"; }
+jstr() { echo "$json" | sed -n "s/.*\"$1\":\"\([^\"]*\)\".*/\1/p"; }
+jbool() { echo "$json" | sed -n "s/.*\"$1\":\(true\|false\).*/\1/p"; }
+
+state=$(jstr state)
+[ -n "$state" ] || { echo "s6-svstat: $svc: cannot parse gopherd status" >&2; exit "$EX_SYS"; }
+
+pid=$(jnum pid);            : "${pid:=-1}"
+uptime=$(jnum uptime_seconds); : "${uptime:=0}"
+enabled=$(jbool enabled);   : "${enabled:=false}"
+
+if [ "$state" = up ]; then up=true; else up=false; pid=-1; uptime=0; fi
+
+# TAI64N external label: 2^62 + unixtime + 10, then 8 hex digits of nanoseconds.
+tai64n() { printf '@%016x%08x' $((4611686018427387914 + $1)) 0; }
+
+field_value() {
+    case $1 in
+        up|ready)             echo "$up" ;;
+        wantedup|normallyup)  echo "$enabled" ;;
+        paused)               echo false ;;
+        pid)                  echo "$pid" ;;
+        # gopherd starts each service with Setsid, so pgid == pid while it runs.
+        pgid)                 echo "$pid" ;;
+        exitcode|signum)      echo -1 ;;
+        signal)               echo NA ;;
+        updownfor|readyfor)   echo "$uptime" ;;
+        updownsince|readysince) tai64n $(( $(date +%s) - uptime )) ;;
+    esac
+}
+
+if [ "$human" = 1 ]; then
+    if [ "$up" = true ]; then
+        line="up (pid $pid) $uptime seconds"
+        [ "$enabled" = false ] && line="$line, normally down"
+    else
+        line="down $uptime seconds"
+        [ "$enabled" = true ] && line="$line, normally up"
+    fi
+    echo "$line, ready $uptime seconds"
+    exit 0
+fi
+
+out=
+for f in $fields; do
+    out="${out}${out:+ }$(field_value "$f")"
+done
+echo "$out"

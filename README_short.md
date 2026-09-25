@@ -89,6 +89,16 @@ $ docker kill -s USR2 my-running-haproxy
 
 To use Data Plane API it is easiest to use s6-tagged images which all have Data Plane API running by default.
 
+Despite the tag name, the s6-tagged images are no longer supervised by s6-overlay: they run [gopherd](https://github.com/haproxytech/gopherd) as PID 1, which starts HAProxy and Data Plane API and restarts either one if it exits. On first start a random password replaces the shipped `admin` placeholder in `/usr/local/etc/haproxy/dataplaneapi.yml`. HAProxy is started with two thirds of the container's memory limit (`-m`) and Data Plane API with one third (`GOMEMLIMIT`).
+
+In these images `SIGUSR2` reloads HAProxy, and both `SIGTERM` and `SIGUSR1` stop the container. By default HAProxy then stops immediately. Set `USE_SIGUSR1` to any non-empty value to make it finish serving existing connections first. That lasts until `hard-stop-after` in your configuration expires, or without it until Docker's stop timeout, so raise that as well:
+
+```console
+$ docker run -d -e USE_SIGUSR1=1 --stop-timeout 60 haproxytech/haproxy-ubuntu:s6-3.4
+```
+
+The services can be managed from inside the container with `gopherd status`, `gopherd restart haproxy`, `gopherd signal haproxy USR2` and so on. For tooling and bind-mounted configuration written for the s6 images, `s6-svc` and `s6-svstat` are still present, including at their old `/command` and `/package/admin/s6/command` paths, and translate to gopherd: `s6-svc -2 /run/s6-rc/servicedirs/haproxy` still reloads HAProxy. The `-o`, `-O`, `-Q` and `-x` flags ask for supervision changes gopherd cannot make at runtime, so they exit 100 with an explanation instead. New scripts should call `gopherd` directly.
+
 # License
 
 View [license information](https://raw.githubusercontent.com/haproxy/haproxy/master/LICENSE) for the software contained in this image.

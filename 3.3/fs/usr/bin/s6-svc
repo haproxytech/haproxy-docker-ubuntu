@@ -1,0 +1,192 @@
+#!/bin/sh
+#
+# s6-svc(1) emulated on top of gopherd, so runbooks and tooling written against
+# the s6 images keep working after the migration. The argument grammar, the
+# multiple-servicedir behaviour and the exit codes follow s6-svc; a servicedir
+# is reduced to its basename, which is the gopherd service name.
+#
+#   s6-svc [-wu|-wU|-wd|-wD|-wr|-wR] [-T timeout]
+#          [-s signal | -abqhkti12pcyrlPCK] [-oduDUxOQ] servicedirs...
+#
+# Two differences that cannot be papered over:
+#
+#   * gopherd signals the whole process group (service.go: Kill(-pid)), so the
+#     single-process flags are widened to the group. -P/-C/-K, which ask for the
+#     group in s6 too, are therefore exact.
+#   * -o, -O, -Q and -x change supervision policy at runtime. gopherd's restart
+#     policy is static config (on-success/on-failure) and nothing over the
+#     control socket stops the daemon, so those fail loudly instead of pretending.
+#     The exception is -O next to -d: "stop and stay stopped" is what a plain
+#     `gopherd stop` already does, because an intentional stop is exempt from the
+#     exit actions, so that combination is honoured.
+
+# Overridable so the translation can be exercised against a stub.
+GOPHERD=${GOPHERD:-/usr/local/bin/gopherd}
+
+EX_USAGE=100                      # s6: usage error
+EX_NOSVC=102                      # s6: not a supervised service
+EX_SYS=111                        # s6: system call failure
+
+ops=                              # ordered op list, one "verb[:arg]" per line
+wait_for=                         # up | down
+timeout_ms=0                      # s6 -T, milliseconds; 0 blocks forever
+once=0                            # -O / -Q seen
+saw_stop=0
+rc=0
+
+die_usage() {
+    echo "s6-svc: usage: $*" >&2
+    exit "$EX_USAGE"
+}
+
+unsupported() {
+    cat >&2 <<EOF
+s6-svc: $1 cannot be emulated on gopherd: $2
+EOF
+    exit "$EX_USAGE"
+}
+
+add_op() { ops="${ops}${1}
+"; }
+
+# s6 accepts only these signals, by name (case-insensitive) or number.
+normalise_signal() {
+    s=$(echo "$1" | tr '[:lower:]' '[:upper:]')
+    case $s in
+        SIG*) s=${s#SIG} ;;
+    esac
+    case $s in
+        14|ALRM)  echo ALRM  ;;
+        6|ABRT)   echo ABRT  ;;
+        3|QUIT)   echo QUIT  ;;
+        1|HUP)    echo HUP   ;;
+        9|KILL)   echo KILL  ;;
+        15|TERM)  echo TERM  ;;
+        2|INT)    echo INT   ;;
+        10|USR1)  echo USR1  ;;
+        12|USR2)  echo USR2  ;;
+        19|STOP)  echo STOP  ;;
+        18|CONT)  echo CONT  ;;
+        28|WINCH) echo WINCH ;;
+        *) return 1 ;;
+    esac
+}
+
+while getopts 'w:T:s:abqhkti12pcyrlPCKoduDUxOQ' opt; do
+    case $opt in
+        a) add_op signal:ALRM  ;;
+        b) add_op signal:ABRT  ;;
+        q) add_op signal:QUIT  ;;
+        h) add_op signal:HUP   ;;
+        k) add_op signal:KILL  ;;
+        t) add_op signal:TERM  ;;
+        i) add_op signal:INT   ;;
+        1) add_op signal:USR1  ;;
+        2) add_op signal:USR2  ;;
+        p|P) add_op signal:STOP ;;
+        c|C) add_op signal:CONT ;;
+        y) add_op signal:WINCH ;;
+        K) add_op signal:KILL  ;;
+        s)
+            sig=$(normalise_signal "$OPTARG") \
+                || die_usage "-s: $OPTARG is not a signal s6-svc will send"
+            add_op "signal:$sig"
+            ;;
+        # s6's reload-signal defaults to SIGHUP.
+        l) add_op signal:HUP ;;
+        u|U) add_op start ;;
+        d|D) add_op stop; saw_stop=1 ;;
+        r) add_op restart ;;
+        O|Q) once=1 ;;
+        o) unsupported "-o" "it means -uO, and gopherd cannot start a service with restarts disabled" ;;
+        x) unsupported "-x" "no control-socket command stops the daemon; send SIGTERM to PID 1 instead" ;;
+        T)
+            case $OPTARG in
+                ''|*[!0-9]*) die_usage "-T: $OPTARG is not a millisecond count" ;;
+            esac
+            timeout_ms=$OPTARG
+            ;;
+        w)
+            case $OPTARG in
+                d|D) wait_for=down ;;
+                # -wU/-wR additionally wait for readiness notification. gopherd
+                # expresses that as a ready-check, which these services do not
+                # define, so s6's own -wu/-wr fallback applies.
+                u|U|r|R) wait_for=up ;;
+                *) die_usage "-w$OPTARG: expected one of -wu -wU -wd -wD -wr -wR" ;;
+            esac
+            ;;
+        ?) exit "$EX_USAGE" ;;
+    esac
+done
+shift $((OPTIND - 1))
+
+[ $# -gt 0 ] || die_usage "s6-svc [options] servicedirs..."
+
+if [ "$once" = 1 ] && [ "$saw_stop" != 1 ]; then
+    unsupported "-O/-Q without -d" \
+"gopherd's restart policy is static config. Use -d (gopherd stop) to stop a
+service and keep it stopped, or edit on-success/on-failure in gopherd.yml."
+fi
+
+command -v "$GOPHERD" >/dev/null 2>&1 || {
+    echo "s6-svc: $GOPHERD not found" >&2
+    exit "$EX_SYS"
+}
+
+# gopherd's own state word, or empty when it cannot be read.
+svc_state() {
+    "$GOPHERD" status "$1" -o json 2>/dev/null |
+        sed -n 's/.*"state":"\([^"]*\)".*/\1/p'
+}
+
+# Distinguish "no such service" (s6 102) from an unreachable daemon (s6 111).
+classify_failure() {
+    case $1 in
+        *'unknown service'*) return "$EX_NOSVC" ;;
+        *) return "$EX_SYS" ;;
+    esac
+}
+
+await() {
+    svc=$1 want=$2 waited=0
+    while :; do
+        st=$(svc_state "$svc")
+        case $want in
+            up)   [ "$st" = up ] && return 0 ;;
+            down) [ -n "$st" ] && [ "$st" != up ] && return 0 ;;
+        esac
+        if [ "$timeout_ms" -gt 0 ] && [ "$waited" -ge "$timeout_ms" ]; then
+            echo "s6-svc: timed out waiting for $svc to be $want" >&2
+            return 1
+        fi
+        sleep 0.1
+        waited=$((waited + 100))
+    done
+}
+
+# s6-svc reports each failure but keeps going, exiting with the last error.
+for dir in "$@"; do
+    svc=$(basename -- "$dir")
+    [ -n "$svc" ] && [ "$svc" != / ] || { echo "s6-svc: bad servicedir: $dir" >&2; rc=$EX_USAGE; continue; }
+
+    failed=0
+    echo "$ops" | while IFS= read -r op; do
+        [ -n "$op" ] || continue
+        case $op in
+            signal:*) set -- signal "$svc" "${op#signal:}" ;;
+            *)        set -- "$op" "$svc" ;;
+        esac
+        out=$("$GOPHERD" "$@" 2>&1) || {
+            echo "s6-svc: $svc: $out" >&2
+            classify_failure "$out"
+            exit $?
+        }
+    done || { failed=$?; rc=$failed; }
+
+    if [ -n "$wait_for" ] && [ "$failed" = 0 ]; then
+        await "$svc" "$wait_for" || rc=1
+    fi
+done
+
+exit "$rc"
