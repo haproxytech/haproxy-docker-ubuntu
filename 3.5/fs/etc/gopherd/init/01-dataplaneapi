@@ -2,25 +2,28 @@
 
 # Replace the placeholder admin passwords the image ships with. This runs
 # before haproxy starts, so the haproxy.cfg edit needs no reload.
+#
+# A failing oneshot is fatal to gopherd, and that is wanted here: when sed
+# cannot write (a read-only root or bind mount), the container must stop
+# rather than serve the Data Plane API with the well-known placeholder.
+set -e
 
 DP_CONF="/usr/local/etc/haproxy/dataplaneapi.yml"
 HAP_CONF="/usr/local/etc/haproxy/haproxy.cfg"
 
-if grep -q "password: admin" "${DP_CONF}"; then
-    echo "Generated admin password for Dataplaneapi"
+genpass() {
+    tr -cd 'A-Za-z0-9!?%=' < /dev/urandom | head -c16
+}
 
-    PASS=$(tr -cd 'A-Za-z0-9!?%=' < /dev/urandom | head -c8)
-    sed -i "s,password: admin,password: ${PASS},g" "${DP_CONF}"
+if grep -q "password: admin" "${DP_CONF}"; then
+    PASS=$(genpass)
+    # Quoted: a leading ! is a YAML tag and a leading % is invalid YAML.
+    sed -i "s,password: admin,password: '${PASS}',g" "${DP_CONF}"
+    echo "Generated admin password for Dataplaneapi"
 fi
 
 if grep -q "user admin insecure-password admin" "${HAP_CONF}"; then
-    echo "Generated admin password for Dataplaneapi"
-
-    PASS=$(tr -cd 'A-Za-z0-9!?%=' < /dev/urandom | head -c8)
+    PASS=$(genpass)
     sed -i "s,user admin insecure-password admin,user admin insecure-password ${PASS},g" "${HAP_CONF}"
+    echo "Generated admin password for Dataplaneapi"
 fi
-
-# A failing oneshot is fatal to gopherd. The s6 run script started the Data
-# Plane API even when sed could not write (a read-only bind mount), so keep
-# that rather than refusing to boot.
-exit 0

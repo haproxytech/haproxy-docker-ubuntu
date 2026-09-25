@@ -99,6 +99,41 @@ $ docker run -d -e USE_SIGUSR1=1 --stop-timeout 60 haproxytech/haproxy-ubuntu:s6
 
 The services can be managed from inside the container with `gopherd status`, `gopherd restart haproxy`, `gopherd signal haproxy USR2` and so on. For tooling and bind-mounted configuration written for the s6 images, `s6-svc` and `s6-svstat` are still present, including at their old `/command` and `/package/admin/s6/command` paths, and translate to gopherd: `s6-svc -2 /run/s6-rc/servicedirs/haproxy` still reloads HAProxy. The `-o`, `-O`, `-Q` and `-x` flags ask for supervision changes gopherd cannot make at runtime, so they exit 100 with an explanation instead. New scripts should call `gopherd` directly.
 
+### Running Data Plane API images read-only
+
+The s6-tagged images can run with a read-only root filesystem (`--read-only`) when the directories they write to are volumes. With the shipped `/usr/local/etc/haproxy/dataplaneapi.yml` those are two trees:
+
+- `/usr/local/etc/haproxy` holds `haproxy.cfg` and `dataplaneapi.yml`, which Data Plane API rewrites, and the directories it stores uploaded files in: `maps` (`maps_dir`), `ssl` (`ssl_certs_dir`), `general` (`general_storage_dir`) and `spoe` (`spoe_dir`).
+- `/usr/local/var/lib/dataplaneapi` holds Data Plane API's internal state in `storage` (`dataplane_storage_dir`), along with its `transactions` and configuration `backups`.
+
+`/run` (the gopherd and HAProxy sockets) and `/tmp` (the SPOE transaction directory) must be writable as well, but need not persist, so a `tmpfs` is enough:
+
+```console
+$ docker run -d --name my-running-haproxy --read-only \
+    --tmpfs /run --tmpfs /tmp \
+    -v haproxy-config:/usr/local/etc/haproxy \
+    -v haproxy-dataplaneapi:/usr/local/var/lib/dataplaneapi \
+    -p 80:80 -p 443:443 -p 5555:5555 \
+    haproxytech/haproxy-ubuntu:s6-3.4
+```
+
+Docker fills an empty named volume with the image's files on first use, so the container starts from the default configuration. The generated admin password, configuration changes, maps, certificates and SPOE files are then kept when the container is recreated. To read the password:
+
+```console
+$ docker exec my-running-haproxy grep password: /usr/local/etc/haproxy/dataplaneapi.yml
+```
+
+A bind-mounted host directory is not filled in, and without `haproxy.cfg` and `dataplaneapi.yml` neither service can start, so copy the defaults out of the image first:
+
+```console
+$ docker create --name haproxy-defaults haproxytech/haproxy-ubuntu:s6-3.4
+$ docker cp haproxy-defaults:/usr/local/etc/haproxy/. /srv/haproxy/config/
+$ docker cp haproxy-defaults:/usr/local/var/lib/dataplaneapi/. /srv/haproxy/dataplaneapi/
+$ docker rm haproxy-defaults
+```
+
+Then use `-v /srv/haproxy/config:/usr/local/etc/haproxy -v /srv/haproxy/dataplaneapi:/usr/local/var/lib/dataplaneapi` in place of the named volumes. If the configuration directory is not writable, the container exits at start instead of serving Data Plane API with the shipped `admin` password.
+
 # License
 
 View [license information](https://raw.githubusercontent.com/haproxy/haproxy/master/LICENSE) for the software contained in this image.

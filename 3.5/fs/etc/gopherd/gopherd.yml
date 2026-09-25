@@ -32,7 +32,8 @@ processes:
   - name: haproxy
     command: /usr/local/sbin/haproxy
     args:
-      - -W
+      # -Ws: master-worker that reports READY=1 once its workers are up.
+      - -Ws
       - -db
       - -m
       # Two thirds of the smaller of RAM and the cgroup limit, in MiB.
@@ -43,6 +44,12 @@ processes:
       - /etc/haproxy/haproxy.cfg
     # The oneshot may rewrite the userlist in haproxy.cfg.
     after: [dataplaneapi-config]
+    # Hold dataplaneapi until haproxy is ready. Started alongside a master that
+    # is still coming up, it can block forever on its first master-socket read.
+    # A slow config load (many certificates) must not hit the timeout, which
+    # stops the container.
+    sd-notify: true
+    sd-notify-timeout: 5m
     # Forwarding is strict opt-in, so the identity map is what makes SIGUSR2 to
     # the container reload haproxy. USR1 cannot be mapped: it is a stop signal.
     signal-rewrite:
