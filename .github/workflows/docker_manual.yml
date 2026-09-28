@@ -2,7 +2,24 @@ name: Manual build and push to Docker Hub
 on:
   workflow_dispatch:
 jobs:
+  branches:
+    runs-on: large_runner
+    permissions:
+      contents: read
+    outputs:
+      branches: ${{ steps.list.outputs.branches }}
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: List branch directories
+        id: list
+        run: |
+          list=$(ls -d [0-9]*/ | tr -d / | sort -V | sed 's/.*/"&"/' | paste -sd, -)
+          echo "branches=[${list}]" >> $GITHUB_OUTPUT
+
   main:
+    needs: branches
     runs-on: large_runner
     permissions:
       contents: read
@@ -10,12 +27,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        branch: ["2.6", "2.8", "3.0", "3.2", "3.3", "3.4", "3.5"]
+        branch: ${{ fromJSON(needs.branches.outputs.branches) }}
     env:
       DOCKER_PLATFORMS: linux/amd64,linux/arm/v7,linux/arm64
       DOCKER_IMAGE: haproxytech/haproxy-ubuntu
       DOCKER_IMAGE_UNIFIED: haproxytech/haproxy
-      STABLE_BRANCH: "3.4"
+      UNIFIED_PREFIX: ubuntu
+      GHCR_IMAGE: ghcr.io/${{ github.repository }}
     steps:
       - name: Login to Docker Hub
         id: login_docker
@@ -47,14 +65,17 @@ jobs:
         id: env
         run: |
           echo "BUILD_BRANCH=$(echo ${{ matrix.branch }})" >> $GITHUB_ENV
-          echo "BUILD_VER=$(awk '/^ENV HAPROXY_MINOR/ {print $NF}' ${{ matrix.branch }}/Dockerfile)" >> $GITHUB_ENV
+          echo "BUILD_VER=$(awk '/^ENV HAPROXY_MINOR/ {print $NF; exit}' ${{ matrix.branch }}/Dockerfile)" >> $GITHUB_ENV
           echo "BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_ENV
           echo "GIT_SHA=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_ENV
           echo "GIT_REF=$(git symbolic-ref -q --short HEAD || git describe --tags --exact-match)" >> $GITHUB_ENV
 
-      - name: Build and push latest stable branch
-        if: ${{ env.BUILD_BRANCH == env.STABLE_BRANCH }}
-        id: docker_build_latest
+      - name: Work out image tags
+        id: tags
+        run: ./.github/image-tags.sh
+
+      - name: Build and push
+        id: docker_build
         uses: docker/build-push-action@v6
         with:
           context: ${{ env.BUILD_BRANCH }}
@@ -70,22 +91,13 @@ jobs:
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.version=${{ env.BUILD_VER }}
-          tags: |
-            ${{ env.DOCKER_IMAGE }}:latest
-            ${{ env.DOCKER_IMAGE }}:${{ env.BUILD_BRANCH }}
-            ${{ env.DOCKER_IMAGE }}:${{ env.BUILD_VER }}
-            ${{ env.DOCKER_IMAGE_UNIFIED }}:ubuntu-latest
-            ${{ env.DOCKER_IMAGE_UNIFIED }}:ubuntu-${{ env.BUILD_BRANCH }}
-            ${{ env.DOCKER_IMAGE_UNIFIED }}:ubuntu-${{ env.BUILD_VER }}
-            ghcr.io/${{ github.repository }}:latest
-            ghcr.io/${{ github.repository }}:${{ env.BUILD_BRANCH }}
-            ghcr.io/${{ github.repository }}:${{ env.BUILD_VER }}
+          tags: ${{ steps.tags.outputs.tags }}
           cache-from: type=gha,scope=${{ env.BUILD_BRANCH }}-std
           cache-to: type=gha,scope=${{ env.BUILD_BRANCH }}-std,mode=max
 
-      - name: Build and push latest stable branch for s6
-        if: ${{ env.BUILD_BRANCH == env.STABLE_BRANCH && hashFiles(format('{0}/Dockerfile.api', env.BUILD_BRANCH)) != '' }}
-        id: docker_build_latest_s6
+      - name: Build and push for s6
+        if: ${{ hashFiles(format('{0}/Dockerfile.api', env.BUILD_BRANCH)) != '' }}
+        id: docker_build_s6
         uses: docker/build-push-action@v6
         with:
           context: ${{ env.BUILD_BRANCH }}
@@ -101,71 +113,6 @@ jobs:
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.version=${{ env.BUILD_VER }}
-          tags: |
-            ${{ env.DOCKER_IMAGE }}:s6-latest
-            ${{ env.DOCKER_IMAGE }}:s6-${{ env.BUILD_BRANCH }}
-            ${{ env.DOCKER_IMAGE }}:s6-${{ env.BUILD_VER }}
-            ${{ env.DOCKER_IMAGE_UNIFIED }}:ubuntu-s6-latest
-            ${{ env.DOCKER_IMAGE_UNIFIED }}:ubuntu-s6-${{ env.BUILD_BRANCH }}
-            ${{ env.DOCKER_IMAGE_UNIFIED }}:ubuntu-s6-${{ env.BUILD_VER }}
-            ghcr.io/${{ github.repository }}:s6-latest
-            ghcr.io/${{ github.repository }}:s6-${{ env.BUILD_BRANCH }}
-            ghcr.io/${{ github.repository }}:s6-${{ env.BUILD_VER }}
-          cache-from: type=gha,scope=${{ env.BUILD_BRANCH }}-s6
-          cache-to: type=gha,scope=${{ env.BUILD_BRANCH }}-s6,mode=max
-
-      - name: Build and push everything else
-        if: ${{ env.BUILD_BRANCH != env.STABLE_BRANCH }}
-        id: docker_build_regular
-        uses: docker/build-push-action@v6
-        with:
-          context: ${{ env.BUILD_BRANCH }}
-          file: ${{ env.BUILD_BRANCH }}/Dockerfile
-          builder: ${{ steps.buildx.outputs.name }}
-          platforms: ${{ env.DOCKER_PLATFORMS }}
-          push: true
-          labels: |
-            org.opencontainers.image.authors=${{ github.repository_owner }}
-            org.opencontainers.image.created=${{ env.BUILD_DATE }}
-            org.opencontainers.image.description=Created from commit ${{ env.GIT_SHA }} and ref ${{ env.GIT_REF }}
-            org.opencontainers.image.ref.name=${{ env.GIT_REF }}
-            org.opencontainers.image.revision=${{ github.sha }}
-            org.opencontainers.image.source=https://github.com/${{ github.repository }}
-            org.opencontainers.image.version=${{ env.BUILD_VER }}
-          tags: |
-            ${{ env.DOCKER_IMAGE }}:${{ env.BUILD_BRANCH }}
-            ${{ env.DOCKER_IMAGE }}:${{ env.BUILD_VER }}
-            ${{ env.DOCKER_IMAGE_UNIFIED }}:ubuntu-${{ env.BUILD_BRANCH }}
-            ${{ env.DOCKER_IMAGE_UNIFIED }}:ubuntu-${{ env.BUILD_VER }}
-            ghcr.io/${{ github.repository }}:${{ env.BUILD_BRANCH }}
-            ghcr.io/${{ github.repository }}:${{ env.BUILD_VER }}
-          cache-from: type=gha,scope=${{ env.BUILD_BRANCH }}-std
-          cache-to: type=gha,scope=${{ env.BUILD_BRANCH }}-std,mode=max
-
-      - name: Build and push everything else for s6
-        if: ${{ env.BUILD_BRANCH != env.STABLE_BRANCH && hashFiles(format('{0}/Dockerfile.api', env.BUILD_BRANCH)) != '' }}
-        id: docker_build_regular_s6
-        uses: docker/build-push-action@v6
-        with:
-          context: ${{ env.BUILD_BRANCH }}
-          file: ${{ env.BUILD_BRANCH }}/Dockerfile.api
-          builder: ${{ steps.buildx.outputs.name }}
-          platforms: ${{ env.DOCKER_PLATFORMS }}
-          push: true
-          labels: |
-            org.opencontainers.image.authors=${{ github.repository_owner }}
-            org.opencontainers.image.created=${{ env.BUILD_DATE }}
-            org.opencontainers.image.description=Created from commit ${{ env.GIT_SHA }} and ref ${{ env.GIT_REF }}
-            org.opencontainers.image.ref.name=${{ env.GIT_REF }}
-            org.opencontainers.image.revision=${{ github.sha }}
-            org.opencontainers.image.source=https://github.com/${{ github.repository }}
-            org.opencontainers.image.version=${{ env.BUILD_VER }}
-          tags: |
-            ${{ env.DOCKER_IMAGE }}:s6-${{ env.BUILD_BRANCH }}
-            ${{ env.DOCKER_IMAGE }}:s6-${{ env.BUILD_VER }}
-            ${{ env.DOCKER_IMAGE_UNIFIED }}:ubuntu-s6-${{ env.BUILD_BRANCH }}
-            ${{ env.DOCKER_IMAGE_UNIFIED }}:ubuntu-s6-${{ env.BUILD_VER }}
-            ghcr.io/${{ github.repository }}:s6-${{ env.BUILD_BRANCH }}
-            ghcr.io/${{ github.repository }}:s6-${{ env.BUILD_VER }}
+          tags: ${{ steps.tags.outputs.s6_tags }}
           cache-from: type=gha,scope=${{ env.BUILD_BRANCH }}-s6
           cache-to: type=gha,scope=${{ env.BUILD_BRANCH }}-s6,mode=max

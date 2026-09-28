@@ -2,8 +2,9 @@
 
 DOCKER_TAG="haproxytech/haproxy-ubuntu"
 HAPROXY_GITHUB_URL="https://github.com/haproxytech/haproxy-docker-ubuntu/blob/main"
-HAPROXY_BRANCHES="2.6 2.8 3.0 3.2 3.3 3.4 3.5"
-HAPROXY_CURRENT_BRANCH="3.4"
+# Every branch directory is built; STABLE_BRANCH names the one tagged as latest
+HAPROXY_BRANCHES=$(ls -d [0-9]*/ | tr -d / | sort -V)
+HAPROXY_CURRENT_BRANCH=$(cat STABLE_BRANCH)
 PUSH="no"
 HAPROXY_UPDATED=""
 
