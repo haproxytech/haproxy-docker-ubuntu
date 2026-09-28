@@ -2,7 +2,7 @@ name: Version update check and release
 
 on:
   schedule:
-    - cron: "0 * * * *"
+    - cron: "37 * * * *"
   workflow_dispatch:
 
 concurrency:
