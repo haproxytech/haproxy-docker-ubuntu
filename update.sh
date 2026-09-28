@@ -16,6 +16,19 @@ cd "$1"
 HAPROXY_BRANCH="$1"
 # Branch number as a regex, with literal dots
 HAPROXY_BRANCH_RE="${HAPROXY_BRANCH//./\\.}"
+
+# Every value is checked before it is used in a URL, a git tag or the sed
+# rewrite below: only shapes that the build workflow's tag filter accepts are
+# built, and a stray "!" or ";" would otherwise end up as sed commands
+require_format() {
+    local name="$1" value="$2" regex="$3"
+    if ! [[ "${value}" =~ ${regex} ]]; then
+        echo "Unexpected ${name} '${value}', refusing to update"
+        exit 1
+    fi
+}
+
+require_format "branch" "${HAPROXY_BRANCH}" '^[0-9]+\.[0-9]+$'
 DOCKERFILE="Dockerfile"
 DOCKERFILE_API="Dockerfile.api"
 HAPROXY_SRC_URL="https://www.haproxy.org/download"
@@ -36,14 +49,14 @@ DATAPLANE_CHECKSUMS_SHA256_OLD=$(awk '/^ENV DATAPLANE_CHECKSUMS_SHA256/ {print $
 HAPROXY_SRC_DIR="src"
 HAPROXY_SRC_LIST=$("${CURL[@]}" "${HAPROXY_SRC_URL}/${HAPROXY_BRANCH}/${HAPROXY_SRC_DIR}/")
 HAPROXY_MINOR=$(echo "${HAPROXY_SRC_LIST}" | \
-    grep -o "<a href=\"haproxy-${HAPROXY_BRANCH_RE}[.-].*\.tar\.gz\">" | \
+    grep -oE "<a href=\"haproxy-${HAPROXY_BRANCH_RE}(\.[0-9]+|-dev[0-9]+)\.tar\.gz\">" | \
     sed -r -e 's!.*"haproxy-([^"/]+)\.tar\.gz".*!\1!' | sort -r -V | head -1)
 
 if [ -z "${HAPROXY_MINOR}" ]; then
     HAPROXY_SRC_DIR="src/devel"
     HAPROXY_SRC_LIST=$("${CURL[@]}" "${HAPROXY_SRC_URL}/${HAPROXY_BRANCH}/${HAPROXY_SRC_DIR}/")
     HAPROXY_MINOR=$(echo "${HAPROXY_SRC_LIST}" | \
-        grep -o "<a href=\"haproxy-${HAPROXY_BRANCH_RE}[.-].*\.tar\.gz\">" | \
+        grep -oE "<a href=\"haproxy-${HAPROXY_BRANCH_RE}(\.[0-9]+|-dev[0-9]+)\.tar\.gz\">" | \
         sed -r -e 's!.*"haproxy-([^"/]+)\.tar\.gz".*!\1!' | sort -r -V | head -1)
 fi
 
@@ -51,6 +64,7 @@ if [ -z "${HAPROXY_MINOR}" ]; then
     echo "Could not identify latest HAProxy release for ${HAPROXY_BRANCH} branch"
     exit 1
 fi
+require_format "HAProxy version" "${HAPROXY_MINOR}" "^${HAPROXY_BRANCH_RE}(\.[0-9]+|-dev[0-9]+)\$"
 
 HAPROXY_SHA256=$("${CURL[@]}" "${HAPROXY_SRC_URL}/${HAPROXY_BRANCH}/${HAPROXY_SRC_DIR}/haproxy-${HAPROXY_MINOR}.tar.gz.sha256" | \
     awk '{print $1}')
@@ -59,6 +73,7 @@ if [ -z "${HAPROXY_SHA256}" ]; then
     echo "Could not get SHA256 for HAProxy release ${HAPROXY_MINOR}"
     exit 1
 fi
+require_format "HAProxy SHA256" "${HAPROXY_SHA256}" '^[0-9a-f]{64}$'
 
 GITHUB_AUTH=()
 if [ -n "${GH_TOKEN}" ]; then
@@ -76,7 +91,7 @@ case "${DATAPLANE_BRANCH}" in
     2.*) ;;
     *)
         DATAPLANE_MINOR=$(echo "${DATAPLANE_SRC_URL_CONTENT}" | \
-            grep "\"tag_name\":.*\"v${HAPROXY_BRANCH_RE}\." | \
+            grep -E "\"tag_name\": *\"v${HAPROXY_BRANCH_RE}\.[0-9]+\"" | \
             sed -E 's/.*"v?([^"]+)".*/\1/' | \
             sort -V | \
             tail -1
@@ -105,7 +120,7 @@ if [ -z "${DATAPLANE_MINOR}" ]; then
 fi
 
 DATAPLANE_V2_MINOR=$(echo "${DATAPLANE_SRC_URL_CONTENT}" | \
-    grep '"tag_name":.*"v2\.' | \
+    grep -E '"tag_name": *"v2\.[0-9]+\.[0-9]+"' | \
     sed -E 's/.*"v?([^"]+)".*/\1/' | \
     sort -V | \
     tail -1
@@ -121,6 +136,11 @@ if [ -z "${DATAPLANE_V2_MINOR}" ] && grep -q "^ENV DATAPLANE_V2_MINOR" "${DOCKER
     exit 1
 fi
 
+require_format "Dataplane API version" "${DATAPLANE_MINOR}" '^[0-9]+\.[0-9]+\.[0-9]+$'
+if [ -n "${DATAPLANE_V2_MINOR}" ]; then
+    require_format "Dataplane API v2 version" "${DATAPLANE_V2_MINOR}" '^2\.[0-9]+\.[0-9]+$'
+fi
+
 # Pin the release's checksums.txt: the Dockerfile verifies it against this
 # hash and the downloaded tarball against it. Only for Dockerfiles that
 # download a prebuilt Dataplane API; 2.x images build it from source
@@ -131,6 +151,7 @@ if grep -q "^ENV DATAPLANE_CHECKSUMS_SHA256" "${DOCKERFILE}"; then
     "${CURL[@]}" -o "${DATAPLANE_CHECKSUMS_FILE}" \
         "https://github.com/haproxytech/dataplaneapi/releases/download/v${DATAPLANE_MINOR}/checksums.txt"
     DATAPLANE_CHECKSUMS_SHA256=$(sha256sum "${DATAPLANE_CHECKSUMS_FILE}" | awk '{print $1}')
+    require_format "checksums.txt SHA256" "${DATAPLANE_CHECKSUMS_SHA256}" '^[0-9a-f]{64}$'
 
     # A release's files never change once published; a different hash for an
     # already pinned version means they were replaced
