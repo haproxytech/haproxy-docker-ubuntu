@@ -19,7 +19,7 @@ FROM ubuntu:noble AS hapce-builder
 ENV HAPROXY_BRANCH 3.2
 ENV HAPROXY_MINOR 3.2.25
 ENV HAPROXY_SHA256 d59a68d0daef7b5c596b019b742089788ff1748513ef96e71fe7b3943577866e
-ENV HAPROXY_SRC_URL http://www.haproxy.org/download
+ENV HAPROXY_SRC_URL https://www.haproxy.org/download
 
 COPY --from=awslc-builder /opt/aws-lc /opt/aws-lc
 
@@ -57,7 +57,7 @@ LABEL RUN /usr/bin/docker -d IMAGE
 ENV HAPROXY_BRANCH 3.2
 ENV HAPROXY_MINOR 3.2.25
 ENV HAPROXY_SHA256 d59a68d0daef7b5c596b019b742089788ff1748513ef96e71fe7b3943577866e
-ENV HAPROXY_SRC_URL http://www.haproxy.org/download
+ENV HAPROXY_SRC_URL https://www.haproxy.org/download
 
 ENV HAPROXY_UID haproxy
 ENV HAPROXY_GID haproxy

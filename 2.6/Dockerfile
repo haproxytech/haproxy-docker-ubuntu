@@ -26,7 +26,7 @@ LABEL RUN /usr/bin/docker -d IMAGE
 ENV HAPROXY_BRANCH 2.6
 ENV HAPROXY_MINOR 2.6.34
 ENV HAPROXY_SHA256 e2bc5085a241f56fe82a38f3fbd7f34e1afc912f4b43e3d4ee291a0152d03cff
-ENV HAPROXY_SRC_URL http://www.haproxy.org/download
+ENV HAPROXY_SRC_URL https://www.haproxy.org/download
 
 ENV HAPROXY_UID haproxy
 ENV HAPROXY_GID haproxy

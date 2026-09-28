@@ -16,31 +16,37 @@ cd "$1"
 HAPROXY_BRANCH="$1"
 DOCKERFILE="Dockerfile"
 DOCKERFILE_API="Dockerfile.api"
-HAPROXY_SRC_URL="http://www.haproxy.org/download"
+HAPROXY_SRC_URL="https://www.haproxy.org/download"
 
 if ! test -f "$DOCKERFILE"; then
 	echo "Cannot find $DOCKERFILE"
 	exit 1
 fi
 
-HAPROXY_MINOR=$(curl -sfSL "${HAPROXY_SRC_URL}/${HAPROXY_BRANCH}/src/" 2>/dev/null | \
+# Fetch listings separately so that set -e aborts on download errors: a failed
+# stable listing must not fall through to devel/, which still holds stale -dev
+# releases for stable branches
+HAPROXY_SRC_DIR="src"
+HAPROXY_SRC_LIST=$(curl -sfSL "${HAPROXY_SRC_URL}/${HAPROXY_BRANCH}/${HAPROXY_SRC_DIR}/")
+HAPROXY_MINOR=$(echo "${HAPROXY_SRC_LIST}" | \
     grep -o "<a href=\"haproxy-${HAPROXY_BRANCH}.*\.tar\.gz\">" | \
     sed -r -e 's!.*"haproxy-([^"/]+)\.tar\.gz".*!\1!' | sort -r -V | head -1)
-HAPROXY_SHA256=$(curl -sfSL "${HAPROXY_SRC_URL}/${HAPROXY_BRANCH}/src/haproxy-${HAPROXY_MINOR}.tar.gz.sha256" 2>/dev/null | \
-    awk '{print $1}')
 
 if [ -z "${HAPROXY_MINOR}" ]; then
-    HAPROXY_MINOR=$(curl -sfSL "${HAPROXY_SRC_URL}/${HAPROXY_BRANCH}/src/devel/" 2>/dev/null | \
+    HAPROXY_SRC_DIR="src/devel"
+    HAPROXY_SRC_LIST=$(curl -sfSL "${HAPROXY_SRC_URL}/${HAPROXY_BRANCH}/${HAPROXY_SRC_DIR}/")
+    HAPROXY_MINOR=$(echo "${HAPROXY_SRC_LIST}" | \
         grep -o "<a href=\"haproxy-${HAPROXY_BRANCH}.*\.tar\.gz\">" | \
         sed -r -e 's!.*"haproxy-([^"/]+)\.tar\.gz".*!\1!' | sort -r -V | head -1)
-    HAPROXY_SHA256=$(curl -sfSL "${HAPROXY_SRC_URL}/${HAPROXY_BRANCH}/src/devel/haproxy-${HAPROXY_MINOR}.tar.gz.sha256" | \
-        awk '{print $1}')
 fi
 
 if [ -z "${HAPROXY_MINOR}" ]; then
     echo "Could not identify latest HAProxy release for ${HAPROXY_BRANCH} branch"
     exit 1
 fi
+
+HAPROXY_SHA256=$(curl -sfSL "${HAPROXY_SRC_URL}/${HAPROXY_BRANCH}/${HAPROXY_SRC_DIR}/haproxy-${HAPROXY_MINOR}.tar.gz.sha256" | \
+    awk '{print $1}')
 
 if [ -z "${HAPROXY_SHA256}" ]; then
     echo "Could not get SHA256 for HAProxy release ${HAPROXY_MINOR}"
