@@ -92,7 +92,18 @@ for i in $HAPROXY_BRANCHES; do
         fi
     fi
 
-    HAPROXY_UPDATED="$HAPROXY_UPDATED $HAPROXY_MINOR"
+    # Name what changed in the commit message; only HAProxy releases are
+    # listed in the README commit message
+    if [ "$HAPROXY_MINOR_OLD" != "$HAPROXY_MINOR" ]; then
+        HAPROXY_UPDATED="$HAPROXY_UPDATED $HAPROXY_MINOR"
+        COMMIT_MSG="Automated commit triggered by $HAPROXY_MINOR release(s)"
+    elif [ "$DATAPLANE_MINOR_OLD" != "$DATAPLANE_MINOR" ]; then
+        COMMIT_MSG="Automated commit triggered by Dataplane API $DATAPLANE_MINOR release for $HAPROXY_MINOR"
+    elif [ "$DATAPLANE_V2_MINOR_OLD" != "$DATAPLANE_V2_MINOR" ]; then
+        COMMIT_MSG="Automated commit triggered by Dataplane API $DATAPLANE_V2_MINOR release for $HAPROXY_MINOR"
+    else
+        COMMIT_MSG="Automated rebuild of $HAPROXY_MINOR"
+    fi
 
     if [ \( "x$1" = "xtest" \) -o \( "x$2" = "xtest" \) ]; then
         test_image "$DOCKERFILE" "$DOCKER_TAG:$HAPROXY_MINOR" "$i"
@@ -107,7 +118,7 @@ for i in $HAPROXY_BRANCHES; do
         fi
     fi
 
-    git commit -m "Automated commit triggered by $HAPROXY_MINOR release(s)" -- "$i" || true
+    git commit -m "$COMMIT_MSG" -- "$i" || true
     push_release "$HAPROXY_MINOR"
 done
 

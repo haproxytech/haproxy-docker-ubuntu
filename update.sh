@@ -14,6 +14,8 @@ fi
 cd "$1"
 
 HAPROXY_BRANCH="$1"
+# Branch number as a regex, with literal dots
+HAPROXY_BRANCH_RE="${HAPROXY_BRANCH//./\\.}"
 DOCKERFILE="Dockerfile"
 DOCKERFILE_API="Dockerfile.api"
 HAPROXY_SRC_URL="https://www.haproxy.org/download"
@@ -34,14 +36,14 @@ DATAPLANE_CHECKSUMS_SHA256_OLD=$(awk '/^ENV DATAPLANE_CHECKSUMS_SHA256/ {print $
 HAPROXY_SRC_DIR="src"
 HAPROXY_SRC_LIST=$("${CURL[@]}" "${HAPROXY_SRC_URL}/${HAPROXY_BRANCH}/${HAPROXY_SRC_DIR}/")
 HAPROXY_MINOR=$(echo "${HAPROXY_SRC_LIST}" | \
-    grep -o "<a href=\"haproxy-${HAPROXY_BRANCH}.*\.tar\.gz\">" | \
+    grep -o "<a href=\"haproxy-${HAPROXY_BRANCH_RE}[.-].*\.tar\.gz\">" | \
     sed -r -e 's!.*"haproxy-([^"/]+)\.tar\.gz".*!\1!' | sort -r -V | head -1)
 
 if [ -z "${HAPROXY_MINOR}" ]; then
     HAPROXY_SRC_DIR="src/devel"
     HAPROXY_SRC_LIST=$("${CURL[@]}" "${HAPROXY_SRC_URL}/${HAPROXY_BRANCH}/${HAPROXY_SRC_DIR}/")
     HAPROXY_MINOR=$(echo "${HAPROXY_SRC_LIST}" | \
-        grep -o "<a href=\"haproxy-${HAPROXY_BRANCH}.*\.tar\.gz\">" | \
+        grep -o "<a href=\"haproxy-${HAPROXY_BRANCH_RE}[.-].*\.tar\.gz\">" | \
         sed -r -e 's!.*"haproxy-([^"/]+)\.tar\.gz".*!\1!' | sort -r -V | head -1)
 fi
 
@@ -74,7 +76,7 @@ case "${DATAPLANE_BRANCH}" in
     2.*) ;;
     *)
         DATAPLANE_MINOR=$(echo "${DATAPLANE_SRC_URL_CONTENT}" | \
-            grep "\"tag_name\":.*\"v${DATAPLANE_BRANCH}\." | \
+            grep "\"tag_name\":.*\"v${HAPROXY_BRANCH_RE}\." | \
             sed -E 's/.*"v?([^"]+)".*/\1/' | \
             sort -V | \
             tail -1
