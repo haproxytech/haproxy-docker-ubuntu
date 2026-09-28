@@ -38,14 +38,6 @@ jobs:
         id: buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Cache Docker layers
-        uses: actions/cache@v4
-        with:
-          path: /tmp/.buildx-cache
-          key: ${{ runner.os }}-buildx-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-buildx-
-
       - name: Check out repo
         id: checkout
         uses: actions/checkout@v4
@@ -55,7 +47,7 @@ jobs:
         run: |
           echo "BUILD_BRANCH=$(echo ${{ matrix.branch }})" >> $GITHUB_ENV
           echo "BUILD_VER=$(awk '/^ENV HAPROXY_MINOR/ {print $NF}' ${{ matrix.branch }}/Dockerfile)" >> $GITHUB_ENV
-          echo "BUILD_DATE=$(date +'%Y-%m-%d %H:%M:%S')" >> $GITHUB_ENV
+          echo "BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_ENV
           echo "GIT_SHA=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_ENV
           echo "GIT_REF=$(git symbolic-ref -q --short HEAD || git describe --tags --exact-match)" >> $GITHUB_ENV
 
@@ -87,17 +79,11 @@ jobs:
             ghcr.io/${{ github.repository }}:latest
             ghcr.io/${{ github.repository }}:${{ env.BUILD_BRANCH }}
             ghcr.io/${{ github.repository }}:${{ env.BUILD_VER }}
-          cache-from: type=local,src=/tmp/.buildx-cache
-          cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
-
-      - name: Move cache
-        if: ${{ env.BUILD_BRANCH == env.STABLE_BRANCH }}
-        run: |
-          rm -rf /tmp/.buildx-cache
-          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+          cache-from: type=gha,scope=${{ env.BUILD_BRANCH }}-std
+          cache-to: type=gha,scope=${{ env.BUILD_BRANCH }}-std,mode=max
 
       - name: Build and push latest stable branch for s6
-        if: ${{ env.BUILD_BRANCH == env.STABLE_BRANCH }}
+        if: ${{ env.BUILD_BRANCH == env.STABLE_BRANCH && hashFiles(format('{0}/Dockerfile.api', env.BUILD_BRANCH)) != '' }}
         id: docker_build_latest_s6
         uses: docker/build-push-action@v6
         with:
@@ -124,14 +110,8 @@ jobs:
             ghcr.io/${{ github.repository }}:s6-latest
             ghcr.io/${{ github.repository }}:s6-${{ env.BUILD_BRANCH }}
             ghcr.io/${{ github.repository }}:s6-${{ env.BUILD_VER }}
-          cache-from: type=local,src=/tmp/.buildx-cache
-          cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
-
-      - name: Move cache
-        if: ${{ env.BUILD_BRANCH == env.STABLE_BRANCH }}
-        run: |
-          rm -rf /tmp/.buildx-cache
-          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+          cache-from: type=gha,scope=${{ env.BUILD_BRANCH }}-s6
+          cache-to: type=gha,scope=${{ env.BUILD_BRANCH }}-s6,mode=max
 
       - name: Build and push everything else
         if: ${{ env.BUILD_BRANCH != env.STABLE_BRANCH }}
@@ -158,17 +138,11 @@ jobs:
             ${{ env.DOCKER_IMAGE_UNIFIED }}:ubuntu-${{ env.BUILD_VER }}
             ghcr.io/${{ github.repository }}:${{ env.BUILD_BRANCH }}
             ghcr.io/${{ github.repository }}:${{ env.BUILD_VER }}
-          cache-from: type=local,src=/tmp/.buildx-cache
-          cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
-
-      - name: Move cache for s6
-        if: ${{ env.BUILD_BRANCH != env.STABLE_BRANCH }}
-        run: |
-          rm -rf /tmp/.buildx-cache
-          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+          cache-from: type=gha,scope=${{ env.BUILD_BRANCH }}-std
+          cache-to: type=gha,scope=${{ env.BUILD_BRANCH }}-std,mode=max
 
       - name: Build and push everything else for s6
-        if: ${{ env.BUILD_BRANCH != env.STABLE_BRANCH }}
+        if: ${{ env.BUILD_BRANCH != env.STABLE_BRANCH && hashFiles(format('{0}/Dockerfile.api', env.BUILD_BRANCH)) != '' }}
         id: docker_build_regular_s6
         uses: docker/build-push-action@v6
         with:
@@ -192,11 +166,5 @@ jobs:
             ${{ env.DOCKER_IMAGE_UNIFIED }}:ubuntu-s6-${{ env.BUILD_VER }}
             ghcr.io/${{ github.repository }}:s6-${{ env.BUILD_BRANCH }}
             ghcr.io/${{ github.repository }}:s6-${{ env.BUILD_VER }}
-          cache-from: type=local,src=/tmp/.buildx-cache
-          cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
-
-      - name: Move cache for s6
-        if: ${{ env.BUILD_BRANCH != env.STABLE_BRANCH }}
-        run: |
-          rm -rf /tmp/.buildx-cache
-          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+          cache-from: type=gha,scope=${{ env.BUILD_BRANCH }}-s6
+          cache-to: type=gha,scope=${{ env.BUILD_BRANCH }}-s6,mode=max
