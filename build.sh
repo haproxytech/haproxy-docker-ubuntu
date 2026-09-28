@@ -3,7 +3,7 @@
 DOCKER_TAG="haproxytech/haproxy-ubuntu"
 HAPROXY_GITHUB_URL="https://github.com/haproxytech/haproxy-docker-ubuntu/blob/main"
 # Every branch directory is built; STABLE_BRANCH names the one tagged as latest
-HAPROXY_BRANCHES=$(ls -d [0-9]*/ | tr -d / | sort -V)
+HAPROXY_BRANCHES=$(printf '%s\n' [0-9]*/ | tr -d / | sort -V)
 HAPROXY_CURRENT_BRANCH=$(cat STABLE_BRANCH 2>/dev/null)
 HAPROXY_UPDATED=""
 HAPROXY_FAILED=""
@@ -94,7 +94,7 @@ for i in $HAPROXY_BRANCHES; do
 		continue
 	fi
 
-	if [ "x$1" != "xforce" ]; then
+	if [ "$1" != "force" ]; then
 		if [ "$HAPROXY_MINOR_OLD" = "$HAPROXY_MINOR" ] &&
 			[ "$DATAPLANE_MINOR_OLD" = "$DATAPLANE_MINOR" ] &&
 			[ "$DATAPLANE_V2_MINOR_OLD" = "$DATAPLANE_V2_MINOR" ]; then
@@ -117,7 +117,7 @@ for i in $HAPROXY_BRANCHES; do
 		COMMIT_MSG="Automated rebuild of $HAPROXY_MINOR"
 	fi
 
-	if [ \( "x$1" = "xtest" \) -o \( "x$2" = "xtest" \) ]; then
+	if [ "$1" = "test" ] || [ "$2" = "test" ]; then
 		test_image "$DOCKERFILE" "$DOCKER_TAG:$HAPROXY_MINOR" "$i"
 		docker tag "$DOCKER_TAG:$HAPROXY_MINOR" "$DOCKER_TAG:$i"
 
@@ -137,8 +137,8 @@ done
 # Regenerate on every run, so STABLE_BRANCH or branch directory changes show
 # up without waiting for a release; it is only committed when it changed
 echo -e "# Supported tags and respective \`Dockerfile\` links\n" >README.md
-for i in $(awk '/^ENV HAPROXY_MINOR/ {print $NF}' */Dockerfile | sort -u -r -V); do
-	short=$(echo $i | cut -d. -f1-2 | cut -d- -f1)
+while read -r i; do
+	short=$(echo "$i" | cut -d. -f1-2 | cut -d- -f1)
 	# s6 images are only built for branches with a Dockerfile.api
 	s6=""
 	if [ -f "$short/Dockerfile.api" ]; then
@@ -155,7 +155,7 @@ for i in $(awk '/^ENV HAPROXY_MINOR/ {print $NF}' */Dockerfile | sort -u -r -V);
 		[ -n "$s6" ] && tags="$tags, \`s6-latest\`"
 	fi
 	echo -e "-\t[$tags]($HAPROXY_GITHUB_URL/$short/Dockerfile)" >>README.md
-done
+done < <(awk '/^ENV HAPROXY_MINOR/ {print $NF}' ./*/Dockerfile | sort -u -r -V)
 echo >>README.md
 cat README_short.md >>README.md
 
