@@ -25,6 +25,9 @@ if ! test -f "$DOCKERFILE"; then
 	exit 1
 fi
 
+DATAPLANE_MINOR_OLD=$(awk '/^ENV DATAPLANE_MINOR/ {print $NF; exit}' "$DOCKERFILE")
+DATAPLANE_CHECKSUMS_SHA256_OLD=$(awk '/^ENV DATAPLANE_CHECKSUMS_SHA256/ {print $NF; exit}' "$DOCKERFILE")
+
 # Fetch listings separately so that set -e aborts on download errors: a failed
 # stable listing must not fall through to devel/, which still holds stale -dev
 # releases for stable branches
@@ -80,8 +83,17 @@ case "${DATAPLANE_BRANCH}" in
 esac
 
 # Fall back to the highest stable version: /releases/latest returns the most
-# recently published release, which can be a v2.x maintenance release
+# recently published release, which can be a v2.x maintenance release.
+# Only for branches without a Dataplane API line of their own (2.x, or a new
+# branch before its first Dataplane API release): a branch already on its own
+# line must not silently switch to another one
 if [ -z "${DATAPLANE_MINOR}" ]; then
+    case "${DATAPLANE_MINOR_OLD}" in
+        "${DATAPLANE_BRANCH}".*)
+            echo "No Dataplane API ${DATAPLANE_BRANCH}.x release found, refusing to switch from ${DATAPLANE_MINOR_OLD}"
+            exit 1
+            ;;
+    esac
     DATAPLANE_MINOR=$(echo "${DATAPLANE_SRC_URL_CONTENT}" | \
         grep -E '"tag_name": *"v[0-9]+\.[0-9]+\.[0-9]+"' | \
         sed -E 's/.*"v?([^"]+)".*/\1/' | \
@@ -107,13 +119,35 @@ if [ -z "${DATAPLANE_V2_MINOR}" ] && grep -q "^ENV DATAPLANE_V2_MINOR" "${DOCKER
     exit 1
 fi
 
+# Pin the release's checksums.txt: the Dockerfile verifies it against this
+# hash and the downloaded tarball against it. Only for Dockerfiles that
+# download a prebuilt Dataplane API; 2.x images build it from source
+DATAPLANE_CHECKSUMS_SHA256=""
+if grep -q "^ENV DATAPLANE_CHECKSUMS_SHA256" "${DOCKERFILE}"; then
+    DATAPLANE_CHECKSUMS_FILE=$(mktemp)
+    trap 'rm -f "${DATAPLANE_CHECKSUMS_FILE}"' EXIT
+    "${CURL[@]}" -o "${DATAPLANE_CHECKSUMS_FILE}" \
+        "https://github.com/haproxytech/dataplaneapi/releases/download/v${DATAPLANE_MINOR}/checksums.txt"
+    DATAPLANE_CHECKSUMS_SHA256=$(sha256sum "${DATAPLANE_CHECKSUMS_FILE}" | awk '{print $1}')
+
+    # A release's files never change once published; a different hash for an
+    # already pinned version means they were replaced
+    if [ "${DATAPLANE_MINOR}" = "${DATAPLANE_MINOR_OLD}" ] && \
+       [ -n "${DATAPLANE_CHECKSUMS_SHA256_OLD}" ] && \
+       [ "${DATAPLANE_CHECKSUMS_SHA256}" != "${DATAPLANE_CHECKSUMS_SHA256_OLD}" ]; then
+        echo "checksums.txt of Dataplane API v${DATAPLANE_MINOR} changed since it was pinned, refusing to update"
+        exit 1
+    fi
+fi
+
 sed -r -i -e "s!^(ENV HAPROXY_SRC_URL) .*!\1 ${HAPROXY_SRC_URL}!;
             s!^(ENV HAPROXY_BRANCH) .*!\1 ${HAPROXY_BRANCH}!;
             s!^(ENV HAPROXY_MINOR) .*!\1 ${HAPROXY_MINOR}!;
             s!^(LABEL Version) .*!\1 ${HAPROXY_MINOR}!;
             s!^(ENV HAPROXY_SHA256) .*!\1 ${HAPROXY_SHA256}!
             s!^(ENV DATAPLANE_MINOR) .*!\1 ${DATAPLANE_MINOR}!
-            s!^(ENV DATAPLANE_V2_MINOR) .*!\1 ${DATAPLANE_V2_MINOR}!" \
+            s!^(ENV DATAPLANE_V2_MINOR) .*!\1 ${DATAPLANE_V2_MINOR}!
+            s!^(ENV DATAPLANE_CHECKSUMS_SHA256) .*!\1 ${DATAPLANE_CHECKSUMS_SHA256}!" \
             "${DOCKERFILE}"
 
 if [ -f "${DOCKERFILE_API}" ]; then
@@ -123,6 +157,7 @@ if [ -f "${DOCKERFILE_API}" ]; then
                 s!^(LABEL Version) .*!\1 ${HAPROXY_MINOR}!;
                 s!^(ENV HAPROXY_SHA256) .*!\1 ${HAPROXY_SHA256}!
                 s!^(ENV DATAPLANE_MINOR) .*!\1 ${DATAPLANE_MINOR}!
-                s!^(ENV DATAPLANE_V2_MINOR) .*!\1 ${DATAPLANE_V2_MINOR}!" \
+                s!^(ENV DATAPLANE_V2_MINOR) .*!\1 ${DATAPLANE_V2_MINOR}!
+                s!^(ENV DATAPLANE_CHECKSUMS_SHA256) .*!\1 ${DATAPLANE_CHECKSUMS_SHA256}!" \
                 "${DOCKERFILE_API}"
 fi

@@ -63,6 +63,7 @@ ENV HAPROXY_UID haproxy
 ENV HAPROXY_GID haproxy
 
 ENV DATAPLANE_MINOR 3.4.3
+ENV DATAPLANE_CHECKSUMS_SHA256 2eea7c2f4785d1b3ec6a90f0ae383a7fb58b5970c6f7a80a185f76f04ca95536
 ENV DATAPLANE_URL https://github.com/haproxytech/dataplaneapi/releases/download
 
 ENV DEBIAN_FRONTEND noninteractive
@@ -96,6 +97,11 @@ RUN apt-get update && \
         *) echo "ARG TARGETPLATFORM undeclared" >&2 && exit 1 ;; \
     esac && \
     curl -sfSL "${DATAPLANE_URL}/v${DATAPLANE_MINOR}/dataplaneapi_${DATAPLANE_MINOR}_linux_${API_ARCH}.tar.gz" -o dataplaneapi.tar.gz && \
+    curl -sfSL "${DATAPLANE_URL}/v${DATAPLANE_MINOR}/checksums.txt" -o dataplaneapi-checksums.txt && \
+    echo "${DATAPLANE_CHECKSUMS_SHA256}  dataplaneapi-checksums.txt" | sha256sum -c - && \
+    awk -v f="dataplaneapi_${DATAPLANE_MINOR}_linux_${API_ARCH}.tar.gz" '$2 == f {print $1 "  dataplaneapi.tar.gz"; n++} END {exit n != 1}' dataplaneapi-checksums.txt > dataplaneapi.sha256 && \
+    sha256sum -c dataplaneapi.sha256 && \
+    rm -f dataplaneapi-checksums.txt dataplaneapi.sha256 && \
     mkdir -p /tmp/dataplaneapi && \
     tar -xzf dataplaneapi.tar.gz -C /tmp/dataplaneapi && \
     rm -f dataplaneapi.tar.gz && \
