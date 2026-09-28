@@ -17,6 +17,8 @@ HAPROXY_BRANCH="$1"
 DOCKERFILE="Dockerfile"
 DOCKERFILE_API="Dockerfile.api"
 HAPROXY_SRC_URL="https://www.haproxy.org/download"
+# Retry transient errors and never hang: a failed lookup skips the branch
+CURL=(curl -sfSL --retry 3 --retry-all-errors --connect-timeout 15 --max-time 60)
 
 if ! test -f "$DOCKERFILE"; then
 	echo "Cannot find $DOCKERFILE"
@@ -27,14 +29,14 @@ fi
 # stable listing must not fall through to devel/, which still holds stale -dev
 # releases for stable branches
 HAPROXY_SRC_DIR="src"
-HAPROXY_SRC_LIST=$(curl -sfSL "${HAPROXY_SRC_URL}/${HAPROXY_BRANCH}/${HAPROXY_SRC_DIR}/")
+HAPROXY_SRC_LIST=$("${CURL[@]}" "${HAPROXY_SRC_URL}/${HAPROXY_BRANCH}/${HAPROXY_SRC_DIR}/")
 HAPROXY_MINOR=$(echo "${HAPROXY_SRC_LIST}" | \
     grep -o "<a href=\"haproxy-${HAPROXY_BRANCH}.*\.tar\.gz\">" | \
     sed -r -e 's!.*"haproxy-([^"/]+)\.tar\.gz".*!\1!' | sort -r -V | head -1)
 
 if [ -z "${HAPROXY_MINOR}" ]; then
     HAPROXY_SRC_DIR="src/devel"
-    HAPROXY_SRC_LIST=$(curl -sfSL "${HAPROXY_SRC_URL}/${HAPROXY_BRANCH}/${HAPROXY_SRC_DIR}/")
+    HAPROXY_SRC_LIST=$("${CURL[@]}" "${HAPROXY_SRC_URL}/${HAPROXY_BRANCH}/${HAPROXY_SRC_DIR}/")
     HAPROXY_MINOR=$(echo "${HAPROXY_SRC_LIST}" | \
         grep -o "<a href=\"haproxy-${HAPROXY_BRANCH}.*\.tar\.gz\">" | \
         sed -r -e 's!.*"haproxy-([^"/]+)\.tar\.gz".*!\1!' | sort -r -V | head -1)
@@ -45,7 +47,7 @@ if [ -z "${HAPROXY_MINOR}" ]; then
     exit 1
 fi
 
-HAPROXY_SHA256=$(curl -sfSL "${HAPROXY_SRC_URL}/${HAPROXY_BRANCH}/${HAPROXY_SRC_DIR}/haproxy-${HAPROXY_MINOR}.tar.gz.sha256" | \
+HAPROXY_SHA256=$("${CURL[@]}" "${HAPROXY_SRC_URL}/${HAPROXY_BRANCH}/${HAPROXY_SRC_DIR}/haproxy-${HAPROXY_MINOR}.tar.gz.sha256" | \
     awk '{print $1}')
 
 if [ -z "${HAPROXY_SHA256}" ]; then
@@ -59,7 +61,7 @@ if [ -n "${GH_TOKEN}" ]; then
 fi
 
 DATAPLANE_SRC_URL="https://api.github.com/repos/haproxytech/dataplaneapi/releases?per_page=100"
-DATAPLANE_SRC_URL_CONTENT=$(curl -sfSL "${GITHUB_AUTH[@]}" "${DATAPLANE_SRC_URL}")
+DATAPLANE_SRC_URL_CONTENT=$("${CURL[@]}" "${GITHUB_AUTH[@]}" "${DATAPLANE_SRC_URL}")
 DATAPLANE_BRANCH="${HAPROXY_BRANCH}"
 
 # HAProxy 2.x images ship the latest Dataplane API 3.x (plus v2 as dataplaneapi-v2),

@@ -4,9 +4,23 @@ DOCKER_TAG="haproxytech/haproxy-ubuntu"
 HAPROXY_GITHUB_URL="https://github.com/haproxytech/haproxy-docker-ubuntu/blob/main"
 # Every branch directory is built; STABLE_BRANCH names the one tagged as latest
 HAPROXY_BRANCHES=$(ls -d [0-9]*/ | tr -d / | sort -V)
-HAPROXY_CURRENT_BRANCH=$(cat STABLE_BRANCH)
-PUSH="no"
+HAPROXY_CURRENT_BRANCH=$(cat STABLE_BRANCH 2>/dev/null)
 HAPROXY_UPDATED=""
+HAPROXY_FAILED=""
+
+if [ -z "$HAPROXY_CURRENT_BRANCH" ]; then
+    echo "Cannot read stable branch from STABLE_BRANCH"
+    exit 1
+fi
+
+# Branch directories get reset with git checkout below, which would silently
+# discard local edits
+if ! git diff --quiet HEAD --; then
+    echo "Uncommitted changes in the working tree, refusing to run"
+    exit 1
+fi
+
+GIT_BRANCH=$(git symbolic-ref --short HEAD) || exit 1
 
 test_image() {
     local dockerfile="$1" tag="$2" context="$3"
@@ -16,6 +30,28 @@ test_image() {
 
     docker run --rm --entrypoint /usr/local/sbin/haproxy "$tag" -c -f /usr/local/etc/haproxy/haproxy.cfg || \
         { echo "Failure testing $tag"; exit 1; }
+}
+
+push_release() {
+    local tag="$1" remote_head
+
+    # Check first that the push can succeed: deleting the old tag and then
+    # failing would leave the release without a tag, and image tagging relies
+    # on the tags to tell which release of a branch is the newest
+    remote_head=$(git ls-remote origin "refs/heads/$GIT_BRANCH" | cut -f1) || \
+        { echo "Cannot read origin/$GIT_BRANCH"; exit 1; }
+    if [ -n "$remote_head" ] && ! git merge-base --is-ancestor "$remote_head" HEAD 2>/dev/null; then
+        echo "origin/$GIT_BRANCH has new commits, not pushing $tag"
+        exit 1
+    fi
+
+    git tag -f "$tag"
+    # Recreate rather than move an existing tag, so the push always triggers a build
+    git push origin ":refs/tags/$tag" 2>/dev/null || true
+    # Push the commit and its tag together, one tag per push: GitHub does not
+    # trigger workflows when more than three tags are pushed at once
+    git push --atomic origin HEAD "refs/tags/$tag" || \
+        { echo "Failure pushing $tag"; exit 1; }
 }
 
 for i in $HAPROXY_BRANCHES; do
@@ -28,6 +64,8 @@ for i in $HAPROXY_BRANCHES; do
     DATAPLANE_V2_MINOR_OLD=$(awk '/^ENV DATAPLANE_V2_MINOR/ {print $NF; exit}' "$DOCKERFILE")
 
     if ! ./update.sh "$i"; then
+        echo "Failure updating $i branch"
+        HAPROXY_FAILED="$HAPROXY_FAILED $i"
         git checkout -- "$i"
         continue
     fi
@@ -39,6 +77,7 @@ for i in $HAPROXY_BRANCHES; do
     # Never go backwards, e.g. to a stale devel release after a failed lookup
     if [ "$(printf '%s\n' "$HAPROXY_MINOR_OLD" "$HAPROXY_MINOR" | sort -V | tail -1)" != "$HAPROXY_MINOR" ]; then
         echo "Refusing to downgrade $i branch from $HAPROXY_MINOR_OLD to $HAPROXY_MINOR"
+        HAPROXY_FAILED="$HAPROXY_FAILED $i"
         git checkout -- "$i"
         continue
     fi
@@ -53,7 +92,6 @@ for i in $HAPROXY_BRANCHES; do
         fi
     fi
 
-    PUSH="yes"
     HAPROXY_UPDATED="$HAPROXY_UPDATED $HAPROXY_MINOR"
 
     if [ \( "x$1" = "xtest" \) -o \( "x$2" = "xtest" \) ]; then
@@ -70,19 +108,11 @@ for i in $HAPROXY_BRANCHES; do
     fi
 
     git commit -m "Automated commit triggered by $HAPROXY_MINOR release(s)" -- "$i" || true
-    git tag -f "$HAPROXY_MINOR"
-    # Recreate rather than move an existing tag, so the push always triggers a build
-    git push origin ":refs/tags/$HAPROXY_MINOR" 2>/dev/null || true
-    # Push the commit and its tag together, one tag per push: GitHub does not
-    # trigger workflows when more than three tags are pushed at once
-    git push --atomic origin HEAD "refs/tags/$HAPROXY_MINOR" || \
-        { echo "Failure pushing $HAPROXY_MINOR"; exit 1; }
+    push_release "$HAPROXY_MINOR"
 done
 
-if [ "$PUSH" = "no" ]; then
-        exit 0
-fi
-
+# Regenerate on every run, so STABLE_BRANCH or branch directory changes show
+# up without waiting for a release; it is only committed when it changed
 echo -e "# Supported tags and respective \`Dockerfile\` links\n" > README.md
 for i in $(awk '/^ENV HAPROXY_MINOR/ {print $NF}' */Dockerfile | sort -u -r -V); do
         short=$(echo $i | cut -d. -f1-2 |cut -d- -f1)
@@ -106,5 +136,17 @@ done
 echo >> README.md
 cat README_short.md >> README.md
 
-git commit -m "README regen triggered by $HAPROXY_UPDATED release(s)" -- README.md || true
-git push
+if ! git diff --quiet -- README.md; then
+    if [ -n "$HAPROXY_UPDATED" ]; then
+        git commit -m "README regen triggered by${HAPROXY_UPDATED} release(s)" -- README.md
+    else
+        git commit -m "README regen" -- README.md
+    fi
+    git push origin HEAD || { echo "Failure pushing README.md"; exit 1; }
+fi
+
+# Fail the run so that skipped branches do not go unnoticed
+if [ -n "$HAPROXY_FAILED" ]; then
+    echo "Failed branches:$HAPROXY_FAILED"
+    exit 1
+fi
