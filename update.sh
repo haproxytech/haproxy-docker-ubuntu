@@ -71,11 +71,15 @@ case "${DATAPLANE_BRANCH}" in
         ;;
 esac
 
+# Fall back to the highest stable version: /releases/latest returns the most
+# recently published release, which can be a v2.x maintenance release
 if [ -z "${DATAPLANE_MINOR}" ]; then
-    DATAPLANE_SRC_URL="https://api.github.com/repos/haproxytech/dataplaneapi/releases/latest"
-    DATAPLANE_MINOR=$(curl -sfSL "${GITHUB_AUTH[@]}" "${DATAPLANE_SRC_URL}" | \
-        grep '"tag_name":' | \
-        sed -E 's/.*"v?([^"]+)".*/\1/')
+    DATAPLANE_MINOR=$(echo "${DATAPLANE_SRC_URL_CONTENT}" | \
+        grep -E '"tag_name": *"v[0-9]+\.[0-9]+\.[0-9]+"' | \
+        sed -E 's/.*"v?([^"]+)".*/\1/' | \
+        sort -V | \
+        tail -1
+    )
 fi
 
 DATAPLANE_V2_MINOR=$(echo "${DATAPLANE_SRC_URL_CONTENT}" | \
