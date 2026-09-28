@@ -47,20 +47,33 @@ if [ -z "${HAPROXY_SHA256}" ]; then
     exit 1
 fi
 
-DATAPLANE_SRC_URL="https://api.github.com/repos/haproxytech/dataplaneapi/releases"
-DATAPLANE_SRC_URL_CONTENT=$(curl -sfSL "${DATAPLANE_SRC_URL}")
+GITHUB_AUTH=()
+if [ -n "${GH_TOKEN}" ]; then
+    GITHUB_AUTH=(-H "Authorization: Bearer ${GH_TOKEN}")
+fi
+
+DATAPLANE_SRC_URL="https://api.github.com/repos/haproxytech/dataplaneapi/releases?per_page=100"
+DATAPLANE_SRC_URL_CONTENT=$(curl -sfSL "${GITHUB_AUTH[@]}" "${DATAPLANE_SRC_URL}")
 DATAPLANE_BRANCH="${HAPROXY_BRANCH}"
 
-DATAPLANE_MINOR=$(echo "${DATAPLANE_SRC_URL_CONTENT}" | \
-    grep "\"tag_name\":.*\"v${DATAPLANE_BRANCH}\." | \
-    sed -E 's/.*"v?([^"]+)".*/\1/' | \
-    sort -V | \
-    tail -1
-)
+# HAProxy 2.x images ship the latest Dataplane API 3.x (plus v2 as dataplaneapi-v2),
+# so skip matching old v2.x Dataplane releases against the HAProxy branch
+DATAPLANE_MINOR=""
+case "${DATAPLANE_BRANCH}" in
+    2.*) ;;
+    *)
+        DATAPLANE_MINOR=$(echo "${DATAPLANE_SRC_URL_CONTENT}" | \
+            grep "\"tag_name\":.*\"v${DATAPLANE_BRANCH}\." | \
+            sed -E 's/.*"v?([^"]+)".*/\1/' | \
+            sort -V | \
+            tail -1
+        )
+        ;;
+esac
 
 if [ -z "${DATAPLANE_MINOR}" ]; then
     DATAPLANE_SRC_URL="https://api.github.com/repos/haproxytech/dataplaneapi/releases/latest"
-    DATAPLANE_MINOR=$(curl -sfSL "${DATAPLANE_SRC_URL}" | \
+    DATAPLANE_MINOR=$(curl -sfSL "${GITHUB_AUTH[@]}" "${DATAPLANE_SRC_URL}" | \
         grep '"tag_name":' | \
         sed -E 's/.*"v?([^"]+)".*/\1/')
 fi
@@ -71,6 +84,16 @@ DATAPLANE_V2_MINOR=$(echo "${DATAPLANE_SRC_URL_CONTENT}" | \
     sort -V | \
     tail -1
 )
+
+if [ -z "${DATAPLANE_MINOR}" ]; then
+    echo "Could not identify latest Dataplane API release for ${DATAPLANE_BRANCH} branch"
+    exit 1
+fi
+
+if [ -z "${DATAPLANE_V2_MINOR}" ] && grep -q "^ENV DATAPLANE_V2_MINOR" "${DOCKERFILE}"; then
+    echo "Could not identify latest Dataplane API v2 release"
+    exit 1
+fi
 
 sed -r -i -e "s!^(ENV HAPROXY_SRC_URL) .*!\1 ${HAPROXY_SRC_URL}!;
             s!^(ENV HAPROXY_BRANCH) .*!\1 ${HAPROXY_BRANCH}!;
