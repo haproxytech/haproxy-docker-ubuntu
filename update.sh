@@ -59,37 +59,25 @@ if ! test -f "$DOCKERFILE"; then
 	exit 1
 fi
 
-# Fetch listings separately so that set -e aborts on download errors: a failed
-# stable listing must not fall through to devel/, which still holds stale -dev
-# releases for stable branches
-HAPROXY_SRC_DIR="src"
-HAPROXY_SRC_LIST=$("${CURL[@]}" "${HAPROXY_SRC_URL}/${HAPROXY_BRANCH}/${HAPROXY_SRC_DIR}/")
-HAPROXY_MINOR=$(echo "${HAPROXY_SRC_LIST}" |
-	grep -oE "<a href=\"haproxy-${HAPROXY_BRANCH_RE}(\.[0-9]+|-dev[0-9]+)\.tar\.gz\">" |
-	sed -r -e 's!.*"haproxy-([^"/]+)\.tar\.gz".*!\1!' | sort -r -V | head -1)
-
-if [ -z "${HAPROXY_MINOR}" ]; then
-	HAPROXY_SRC_DIR="src/devel"
-	HAPROXY_SRC_LIST=$("${CURL[@]}" "${HAPROXY_SRC_URL}/${HAPROXY_BRANCH}/${HAPROXY_SRC_DIR}/")
-	HAPROXY_MINOR=$(echo "${HAPROXY_SRC_LIST}" |
-		grep -oE "<a href=\"haproxy-${HAPROXY_BRANCH_RE}(\.[0-9]+|-dev[0-9]+)\.tar\.gz\">" |
-		sed -r -e 's!.*"haproxy-([^"/]+)\.tar\.gz".*!\1!' | sort -r -V | head -1)
-fi
-
-if [ -z "${HAPROXY_MINOR}" ]; then
-	echo "Could not identify latest HAProxy release for ${HAPROXY_BRANCH} branch"
+if ! command -v jq >/dev/null; then
+	echo "jq is required to read the HAProxy, Dataplane API and gopherd release lists"
 	exit 1
 fi
+
+# haproxy.org lists every release of a branch in src/releases.json, with the
+# latest one, its tarball's path below src/ and its SHA256. Stable releases
+# are in src/, development ones in src/devel/
+HAPROXY_RELEASES=$("${CURL[@]}" "${HAPROXY_SRC_URL}/${HAPROXY_BRANCH}/src/releases.json")
+HAPROXY_MINOR=$(jq -r '.latest_release // empty' <<<"${HAPROXY_RELEASES}")
 require_format "HAProxy version" "${HAPROXY_MINOR}" "^${HAPROXY_BRANCH_RE}(\.[0-9]+|-dev[0-9]+)\$"
-
-HAPROXY_SHA256=$("${CURL[@]}" "${HAPROXY_SRC_URL}/${HAPROXY_BRANCH}/${HAPROXY_SRC_DIR}/haproxy-${HAPROXY_MINOR}.tar.gz.sha256" |
-	awk '{print $1}')
-
-if [ -z "${HAPROXY_SHA256}" ]; then
-	echo "Could not get SHA256 for HAProxy release ${HAPROXY_MINOR}"
-	exit 1
-fi
+HAPROXY_FILE=$(jq -r --arg v "${HAPROXY_MINOR}" '.releases[$v].file // empty' <<<"${HAPROXY_RELEASES}")
+require_format "HAProxy tarball" "${HAPROXY_FILE}" "^(devel/)?haproxy-${HAPROXY_MINOR//./\\.}\.tar\.gz\$"
+HAPROXY_SHA256=$(jq -r --arg v "${HAPROXY_MINOR}" '.releases[$v].sha256 // empty' <<<"${HAPROXY_RELEASES}")
 require_format "HAProxy SHA256" "${HAPROXY_SHA256}" '^[0-9a-f]{64}$'
+HAPROXY_SRC_DIR="src"
+if [[ "${HAPROXY_FILE}" == devel/* ]]; then
+	HAPROXY_SRC_DIR="src/devel"
+fi
 
 TMP_DIR=$(mktemp -d)
 
@@ -128,7 +116,17 @@ rewrite -e "s!^(ENV HAPROXY_SRC_URL) .*!\1 ${HAPROXY_SRC_URL}!
             s!^(ENV HAPROXY_BRANCH) .*!\1 ${HAPROXY_BRANCH}!
             s!^(ENV HAPROXY_MINOR) .*!\1 ${HAPROXY_MINOR}!
             s!^(LABEL Version) .*!\1 ${HAPROXY_MINOR}!
-            s!^(ENV HAPROXY_SHA256) .*!\1 ${HAPROXY_SHA256}!"
+            s!^(ENV HAPROXY_SHA256) .*!\1 ${HAPROXY_SHA256}!" \
+	-e 's!/src/(devel/)?(haproxy-\$\{HAPROXY_MINOR\}\.tar\.gz)!/'"${HAPROXY_SRC_DIR}"'/\2!'
+
+# The tarball moves from src/devel/ to src/ with a branch's first stable
+# release: the Dockerfiles have to download it from where it is now
+for dockerfile in "${DOCKERFILE}" "${DOCKERFILE_API}"; do
+	if [ -f "${dockerfile}" ] && ! grep -qF "/${HAPROXY_SRC_DIR}/haproxy-\${HAPROXY_MINOR}.tar.gz" "${dockerfile}"; then
+		echo "Cannot find the HAProxy tarball download in ${dockerfile}"
+		exit 1
+	fi
+done
 
 # Dataplane API and gopherd releases are looked up and pinned the same way.
 # Set RELEASE_VERSIONS to every release version of haproxytech/$1, one per

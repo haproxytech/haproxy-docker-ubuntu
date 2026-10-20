@@ -8,6 +8,7 @@ HAPROXY_CURRENT_BRANCH=$(cat STABLE_BRANCH 2>/dev/null)
 HAPROXY_UPDATED=""
 HAPROXY_FAILED=""
 HAPROXY_PARTIAL=""
+PUSH_FAILED=""
 # Exit status of update.sh when only HAProxy could be updated
 UPDATE_PARTIAL=100
 
@@ -95,12 +96,12 @@ push_release() {
 	remote_ref=$(git ls-remote origin "refs/heads/$GIT_BRANCH") ||
 		{
 			echo "Cannot read origin/$GIT_BRANCH"
-			exit 1
+			return 1
 		}
 	remote_head=$(echo "$remote_ref" | cut -f1)
 	if [ -n "$remote_head" ] && ! git merge-base --is-ancestor "$remote_head" HEAD 2>/dev/null; then
 		echo "origin/$GIT_BRANCH has new commits, not pushing $tag"
-		exit 1
+		return 1
 	fi
 
 	git tag -f "$tag"
@@ -111,7 +112,7 @@ push_release() {
 	git push --atomic origin HEAD "refs/tags/$tag" ||
 		{
 			echo "Failure pushing $tag"
-			exit 1
+			return 1
 		}
 }
 
@@ -218,47 +219,69 @@ for i in $HAPROXY_BRANCHES; do
 	if [ "$HAPROXY_MINOR_OLD" != "$HAPROXY_MINOR" ]; then
 		HAPROXY_UPDATED="$HAPROXY_UPDATED $HAPROXY_MINOR"
 	fi
-	push_release "$HAPROXY_MINOR"
+	# The remaining branches and the README would fail to push the same way:
+	# stop there, but still report everything below
+	if ! push_release "$HAPROXY_MINOR"; then
+		HAPROXY_FAILED="$HAPROXY_FAILED $i"
+		PUSH_FAILED="$i"
+		break
+	fi
 done
 
-# Regenerate on every run, so STABLE_BRANCH or branch directory changes show
-# up without waiting for a release; it is only committed when it changed
-echo -e "# Supported tags and respective \`Dockerfile\` links\n" >README.md
-while read -r i; do
-	short=$(echo "$i" | cut -d. -f1-2 | cut -d- -f1)
-	# s6 images are only built for branches with a Dockerfile.api
-	s6=""
-	if [ -f "$short/Dockerfile.api" ]; then
-		s6="yes"
-	fi
-	tags="\`$i\`"
-	[ -n "$s6" ] && tags="$tags, \`s6-$i\`"
-	if [ "$short" != "$i" ]; then
-		tags="$tags, \`$short\`"
-		[ -n "$s6" ] && tags="$tags, \`s6-$short\`"
-	fi
-	if [ "$short" = "$HAPROXY_CURRENT_BRANCH" ]; then
-		tags="$tags, \`latest\`"
-		[ -n "$s6" ] && tags="$tags, \`s6-latest\`"
-	fi
-	echo -e "-\t[$tags]($HAPROXY_GITHUB_URL/$short/Dockerfile)" >>README.md
-done < <(awk '/^ENV HAPROXY_MINOR/ {print $NF}' ./*/Dockerfile | sort -u -r -V)
-echo >>README.md
-cat README_short.md >>README.md
+HAPROXY_NOT_PROCESSED=""
+if [ -n "$PUSH_FAILED" ]; then
+	after=""
+	for j in $HAPROXY_BRANCHES; do
+		if [ -n "$after" ]; then
+			HAPROXY_NOT_PROCESSED="$HAPROXY_NOT_PROCESSED $j"
+		fi
+		if [ "$j" = "$PUSH_FAILED" ]; then
+			after="yes"
+		fi
+	done
+fi
 
-if ! git diff --quiet -- README.md; then
-	README_MSG="README regen"
-	if [ -n "$HAPROXY_UPDATED" ]; then
-		README_MSG="README regen triggered by${HAPROXY_UPDATED} release(s)"
+# Regenerate on every run, so STABLE_BRANCH or branch directory changes show
+# up without waiting for a release; it is only committed when it changed.
+# Not after a failed push: pushing the README would fail the same way
+README_FAILED=""
+if [ -n "$PUSH_FAILED" ]; then
+	README_FAILED="README.md not regenerated after the failed push"
+else
+	echo -e "# Supported tags and respective \`Dockerfile\` links\n" >README.md
+	while read -r i; do
+		short=$(echo "$i" | cut -d. -f1-2 | cut -d- -f1)
+		# s6 images are only built for branches with a Dockerfile.api
+		s6=""
+		if [ -f "$short/Dockerfile.api" ]; then
+			s6="yes"
+		fi
+		tags="\`$i\`"
+		[ -n "$s6" ] && tags="$tags, \`s6-$i\`"
+		if [ "$short" != "$i" ]; then
+			tags="$tags, \`$short\`"
+			[ -n "$s6" ] && tags="$tags, \`s6-$short\`"
+		fi
+		if [ "$short" = "$HAPROXY_CURRENT_BRANCH" ]; then
+			tags="$tags, \`latest\`"
+			[ -n "$s6" ] && tags="$tags, \`s6-latest\`"
+		fi
+		echo -e "-\t[$tags]($HAPROXY_GITHUB_URL/$short/Dockerfile)" >>README.md
+	done < <(awk '/^ENV HAPROXY_MINOR/ {print $NF}' ./*/Dockerfile | sort -u -r -V)
+	echo >>README.md
+	cat README_short.md >>README.md
+
+	if ! git diff --quiet -- README.md; then
+		README_MSG="README regen"
+		if [ -n "$HAPROXY_UPDATED" ]; then
+			README_MSG="README regen triggered by${HAPROXY_UPDATED} release(s)"
+		fi
+		if ! git commit -m "$README_MSG" -- README.md; then
+			README_FAILED="Failure committing README.md"
+		elif ! git push origin HEAD; then
+			README_FAILED="Failure pushing README.md"
+		fi
 	fi
-	git commit -m "$README_MSG" -- README.md || {
-		echo "Failure committing README.md"
-		exit 1
-	}
-	git push origin HEAD || {
-		echo "Failure pushing README.md"
-		exit 1
-	}
 fi
 
 # Fail the run so that skipped branches and held back Dataplane API or
@@ -269,6 +292,12 @@ fi
 if [ -n "$HAPROXY_FAILED" ]; then
 	echo "Failed branches:$HAPROXY_FAILED"
 fi
-if [ -n "$HAPROXY_PARTIAL" ] || [ -n "$HAPROXY_FAILED" ]; then
+if [ -n "$HAPROXY_NOT_PROCESSED" ]; then
+	echo "Branches not processed after the failed push:$HAPROXY_NOT_PROCESSED"
+fi
+if [ -n "$README_FAILED" ]; then
+	echo "$README_FAILED"
+fi
+if [ -n "$HAPROXY_PARTIAL" ] || [ -n "$HAPROXY_FAILED" ] || [ -n "$README_FAILED" ]; then
 	exit 1
 fi
