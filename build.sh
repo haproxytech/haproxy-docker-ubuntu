@@ -38,6 +38,11 @@ test_image() {
 		}
 }
 
+# Succeeds when version $2 is older than version $1
+is_downgrade() {
+	[ "$(printf '%s\n' "$1" "$2" | sort -V | tail -1)" != "$2" ]
+}
+
 push_release() {
 	local tag="$1" remote_head
 
@@ -74,6 +79,10 @@ for i in $HAPROXY_BRANCHES; do
 	HAPROXY_MINOR_OLD=$(awk '/^ENV HAPROXY_MINOR/ {print $NF; exit}' "$DOCKERFILE")
 	DATAPLANE_MINOR_OLD=$(awk '/^ENV DATAPLANE_MINOR/ {print $NF; exit}' "$DOCKERFILE")
 	DATAPLANE_V2_MINOR_OLD=$(awk '/^ENV DATAPLANE_V2_MINOR/ {print $NF; exit}' "$DOCKERFILE")
+	GOPHERD_VERSION_OLD=""
+	if [ -f "$DOCKERFILE_API" ]; then
+		GOPHERD_VERSION_OLD=$(awk -F= '/^ARG GOPHERD_VERSION=/ {print $2; exit}' "$DOCKERFILE_API")
+	fi
 
 	if ! ./update.sh "$i"; then
 		echo "Failure updating $i branch"
@@ -85,10 +94,23 @@ for i in $HAPROXY_BRANCHES; do
 	HAPROXY_MINOR=$(awk '/^ENV HAPROXY_MINOR/ {print $NF; exit}' "$DOCKERFILE")
 	DATAPLANE_MINOR=$(awk '/^ENV DATAPLANE_MINOR/ {print $NF; exit}' "$DOCKERFILE")
 	DATAPLANE_V2_MINOR=$(awk '/^ENV DATAPLANE_V2_MINOR/ {print $NF; exit}' "$DOCKERFILE")
+	GOPHERD_VERSION=""
+	if [ -f "$DOCKERFILE_API" ]; then
+		GOPHERD_VERSION=$(awk -F= '/^ARG GOPHERD_VERSION=/ {print $2; exit}' "$DOCKERFILE_API")
+	fi
 
 	# Never go backwards, e.g. to a stale devel release after a failed lookup
-	if [ "$(printf '%s\n' "$HAPROXY_MINOR_OLD" "$HAPROXY_MINOR" | sort -V | tail -1)" != "$HAPROXY_MINOR" ]; then
-		echo "Refusing to downgrade $i branch from $HAPROXY_MINOR_OLD to $HAPROXY_MINOR"
+	DOWNGRADE=""
+	is_downgrade "$HAPROXY_MINOR_OLD" "$HAPROXY_MINOR" &&
+		DOWNGRADE="HAProxy from $HAPROXY_MINOR_OLD to $HAPROXY_MINOR"
+	is_downgrade "$DATAPLANE_MINOR_OLD" "$DATAPLANE_MINOR" &&
+		DOWNGRADE="Dataplane API from $DATAPLANE_MINOR_OLD to $DATAPLANE_MINOR"
+	is_downgrade "$DATAPLANE_V2_MINOR_OLD" "$DATAPLANE_V2_MINOR" &&
+		DOWNGRADE="Dataplane API v2 from $DATAPLANE_V2_MINOR_OLD to $DATAPLANE_V2_MINOR"
+	is_downgrade "$GOPHERD_VERSION_OLD" "$GOPHERD_VERSION" &&
+		DOWNGRADE="gopherd from $GOPHERD_VERSION_OLD to $GOPHERD_VERSION"
+	if [ -n "$DOWNGRADE" ]; then
+		echo "Refusing to downgrade $DOWNGRADE in $i branch"
 		HAPROXY_FAILED="$HAPROXY_FAILED $i"
 		git checkout -- "$i"
 		continue
@@ -97,7 +119,8 @@ for i in $HAPROXY_BRANCHES; do
 	if [ "$1" != "force" ]; then
 		if [ "$HAPROXY_MINOR_OLD" = "$HAPROXY_MINOR" ] &&
 			[ "$DATAPLANE_MINOR_OLD" = "$DATAPLANE_MINOR" ] &&
-			[ "$DATAPLANE_V2_MINOR_OLD" = "$DATAPLANE_V2_MINOR" ]; then
+			[ "$DATAPLANE_V2_MINOR_OLD" = "$DATAPLANE_V2_MINOR" ] &&
+			[ "$GOPHERD_VERSION_OLD" = "$GOPHERD_VERSION" ]; then
 			echo "No new releases, not building $i branch"
 			git checkout -- "$i"
 			continue
@@ -113,6 +136,8 @@ for i in $HAPROXY_BRANCHES; do
 		COMMIT_MSG="Automated commit triggered by Dataplane API $DATAPLANE_MINOR release for $HAPROXY_MINOR"
 	elif [ "$DATAPLANE_V2_MINOR_OLD" != "$DATAPLANE_V2_MINOR" ]; then
 		COMMIT_MSG="Automated commit triggered by Dataplane API $DATAPLANE_V2_MINOR release for $HAPROXY_MINOR"
+	elif [ "$GOPHERD_VERSION_OLD" != "$GOPHERD_VERSION" ]; then
+		COMMIT_MSG="Automated commit triggered by gopherd $GOPHERD_VERSION release for $HAPROXY_MINOR"
 	else
 		COMMIT_MSG="Automated rebuild of $HAPROXY_MINOR"
 	fi

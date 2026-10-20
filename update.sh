@@ -80,8 +80,54 @@ if [ -n "${GH_TOKEN}" ]; then
 	GITHUB_AUTH=(-H "Authorization: Bearer ${GH_TOKEN}")
 fi
 
-DATAPLANE_SRC_URL="https://api.github.com/repos/haproxytech/dataplaneapi/releases?per_page=100"
-DATAPLANE_SRC_URL_CONTENT=$("${CURL[@]}" "${GITHUB_AUTH[@]}" "${DATAPLANE_SRC_URL}")
+TMP_DIR=$(mktemp -d)
+trap 'rm -rf "${TMP_DIR}"' EXIT
+
+# Dataplane API and gopherd releases are looked up and pinned the same way.
+# Set RELEASE_VERSIONS to every release version of haproxytech/$1, one per
+# line and without the leading "v". Every page is read: a line that gets no
+# new releases drops off the first page as newer ones are published
+fetch_release_versions() {
+	local repo="$1" page content versions
+	RELEASE_VERSIONS=""
+	for page in 1 2 3 4 5 6 7 8 9 10; do
+		content=$("${CURL[@]}" "${GITHUB_AUTH[@]}" "https://api.github.com/repos/haproxytech/${repo}/releases?per_page=100&page=${page}")
+		versions=$(echo "${content}" | grep -oE '"tag_name": *"[^"]*"' | sed -E 's/.*"v?([^"]*)"$/\1/')
+		if [ -z "${versions}" ]; then
+			return 0
+		fi
+		RELEASE_VERSIONS+="${versions}"$'\n'
+	done
+	echo "More than 10 pages of ${repo} releases, refusing to update"
+	exit 1
+}
+
+# Highest version in RELEASE_VERSIONS that matches the ERE $1
+highest_version() {
+	grep -E "$1" <<<"${RELEASE_VERSIONS}" | sort -V | tail -1
+}
+
+# Set CHECKSUMS_SHA256 to the hash of checksums.txt of haproxytech/$1 release
+# v$2: the Dockerfile verifies checksums.txt against it and the downloaded
+# tarball against checksums.txt. A release's files never change once
+# published, so a different hash for the already pinned version $3 (pinned
+# hash $4) means they were replaced
+pin_checksums() {
+	local repo="$1" version="$2" version_old="$3" sha256_old="$4"
+	local file="${TMP_DIR}/${repo}-checksums.txt"
+	"${CURL[@]}" -o "${file}" "https://github.com/haproxytech/${repo}/releases/download/v${version}/checksums.txt"
+	CHECKSUMS_SHA256=$(sha256sum "${file}" | awk '{print $1}')
+	require_format "${repo} checksums.txt SHA256" "${CHECKSUMS_SHA256}" '^[0-9a-f]{64}$'
+	if [ "${version}" = "${version_old}" ] &&
+		[ -n "${sha256_old}" ] &&
+		[ "${CHECKSUMS_SHA256}" != "${sha256_old}" ]; then
+		echo "checksums.txt of ${repo} v${version} changed since it was pinned, refusing to update"
+		exit 1
+	fi
+}
+
+require_format "pinned Dataplane API version" "${DATAPLANE_MINOR_OLD}" '^[0-9]+\.[0-9]+\.[0-9]+$'
+fetch_release_versions dataplaneapi
 DATAPLANE_BRANCH="${HAPROXY_BRANCH}"
 
 # HAProxy 2.x images ship the latest Dataplane API 3.x (plus v2 as dataplaneapi-v2),
@@ -90,18 +136,12 @@ DATAPLANE_MINOR=""
 case "${DATAPLANE_BRANCH}" in
 2.*) ;;
 *)
-	DATAPLANE_MINOR=$(
-		echo "${DATAPLANE_SRC_URL_CONTENT}" |
-			grep -E "\"tag_name\": *\"v${HAPROXY_BRANCH_RE}\.[0-9]+\"" |
-			sed -E 's/.*"v?([^"]+)".*/\1/' |
-			sort -V |
-			tail -1
-	)
+	DATAPLANE_MINOR=$(highest_version "^${HAPROXY_BRANCH_RE}\.[0-9]+\$")
 	;;
 esac
 
-# Fall back to the highest stable version: /releases/latest returns the most
-# recently published release, which can be a v2.x maintenance release.
+# Fall back to the highest stable version of the pinned major version, as for
+# gopherd: a new major can change the dataplaneapi.yml format.
 # Only for branches without a Dataplane API line of their own (2.x, or a new
 # branch before its first Dataplane API release): a branch already on its own
 # line must not silently switch to another one
@@ -112,22 +152,10 @@ if [ -z "${DATAPLANE_MINOR}" ]; then
 		exit 1
 		;;
 	esac
-	DATAPLANE_MINOR=$(
-		echo "${DATAPLANE_SRC_URL_CONTENT}" |
-			grep -E '"tag_name": *"v[0-9]+\.[0-9]+\.[0-9]+"' |
-			sed -E 's/.*"v?([^"]+)".*/\1/' |
-			sort -V |
-			tail -1
-	)
+	DATAPLANE_MINOR=$(highest_version "^${DATAPLANE_MINOR_OLD%%.*}\.[0-9]+\.[0-9]+\$")
 fi
 
-DATAPLANE_V2_MINOR=$(
-	echo "${DATAPLANE_SRC_URL_CONTENT}" |
-		grep -E '"tag_name": *"v2\.[0-9]+\.[0-9]+"' |
-		sed -E 's/.*"v?([^"]+)".*/\1/' |
-		sort -V |
-		tail -1
-)
+DATAPLANE_V2_MINOR=$(highest_version '^2\.[0-9]+\.[0-9]+$')
 
 if [ -z "${DATAPLANE_MINOR}" ]; then
 	echo "Could not identify latest Dataplane API release for ${DATAPLANE_BRANCH} branch"
@@ -144,26 +172,34 @@ if [ -n "${DATAPLANE_V2_MINOR}" ]; then
 	require_format "Dataplane API v2 version" "${DATAPLANE_V2_MINOR}" '^2\.[0-9]+\.[0-9]+$'
 fi
 
-# Pin the release's checksums.txt: the Dockerfile verifies it against this
-# hash and the downloaded tarball against it. Only for Dockerfiles that
-# download a prebuilt Dataplane API; 2.x images build it from source
+# Only for Dockerfiles that download a prebuilt Dataplane API; 2.x images
+# build it from source
 DATAPLANE_CHECKSUMS_SHA256=""
 if grep -q "^ENV DATAPLANE_CHECKSUMS_SHA256" "${DOCKERFILE}"; then
-	DATAPLANE_CHECKSUMS_FILE=$(mktemp)
-	trap 'rm -f "${DATAPLANE_CHECKSUMS_FILE}"' EXIT
-	"${CURL[@]}" -o "${DATAPLANE_CHECKSUMS_FILE}" \
-		"https://github.com/haproxytech/dataplaneapi/releases/download/v${DATAPLANE_MINOR}/checksums.txt"
-	DATAPLANE_CHECKSUMS_SHA256=$(sha256sum "${DATAPLANE_CHECKSUMS_FILE}" | awk '{print $1}')
-	require_format "checksums.txt SHA256" "${DATAPLANE_CHECKSUMS_SHA256}" '^[0-9a-f]{64}$'
+	pin_checksums dataplaneapi "${DATAPLANE_MINOR}" "${DATAPLANE_MINOR_OLD}" "${DATAPLANE_CHECKSUMS_SHA256_OLD}"
+	DATAPLANE_CHECKSUMS_SHA256="${CHECKSUMS_SHA256}"
+fi
 
-	# A release's files never change once published; a different hash for an
-	# already pinned version means they were replaced
-	if [ "${DATAPLANE_MINOR}" = "${DATAPLANE_MINOR_OLD}" ] &&
-		[ -n "${DATAPLANE_CHECKSUMS_SHA256_OLD}" ] &&
-		[ "${DATAPLANE_CHECKSUMS_SHA256}" != "${DATAPLANE_CHECKSUMS_SHA256_OLD}" ]; then
-		echo "checksums.txt of Dataplane API v${DATAPLANE_MINOR} changed since it was pinned, refusing to update"
+# gopherd only ships in the s6 images (Dockerfile.api). Stay on the pinned
+# major version: a new major can change the gopherd.yml format
+GOPHERD_VERSION=""
+GOPHERD_CHECKSUMS_SHA256=""
+if [ -f "${DOCKERFILE_API}" ] && grep -q "^ARG GOPHERD_VERSION=" "${DOCKERFILE_API}"; then
+	GOPHERD_VERSION_OLD=$(awk -F= '/^ARG GOPHERD_VERSION=/ {print $2; exit}' "${DOCKERFILE_API}")
+	GOPHERD_CHECKSUMS_SHA256_OLD=$(awk -F= '/^ARG GOPHERD_CHECKSUMS_SHA256=/ {print $2; exit}' "${DOCKERFILE_API}")
+	require_format "pinned gopherd version" "${GOPHERD_VERSION_OLD}" '^[0-9]+\.[0-9]+\.[0-9]+$'
+
+	fetch_release_versions gopherd
+	GOPHERD_VERSION=$(highest_version "^${GOPHERD_VERSION_OLD%%.*}\.[0-9]+\.[0-9]+\$")
+
+	if [ -z "${GOPHERD_VERSION}" ]; then
+		echo "Could not identify latest gopherd ${GOPHERD_VERSION_OLD%%.*}.x release"
 		exit 1
 	fi
+	require_format "gopherd version" "${GOPHERD_VERSION}" '^[0-9]+\.[0-9]+\.[0-9]+$'
+
+	pin_checksums gopherd "${GOPHERD_VERSION}" "${GOPHERD_VERSION_OLD}" "${GOPHERD_CHECKSUMS_SHA256_OLD}"
+	GOPHERD_CHECKSUMS_SHA256="${CHECKSUMS_SHA256}"
 fi
 
 sed -r -i -e "s!^(ENV HAPROXY_SRC_URL) .*!\1 ${HAPROXY_SRC_URL}!;
@@ -184,6 +220,8 @@ if [ -f "${DOCKERFILE_API}" ]; then
                 s!^(ENV HAPROXY_SHA256) .*!\1 ${HAPROXY_SHA256}!
                 s!^(ENV DATAPLANE_MINOR) .*!\1 ${DATAPLANE_MINOR}!
                 s!^(ENV DATAPLANE_V2_MINOR) .*!\1 ${DATAPLANE_V2_MINOR}!
-                s!^(ENV DATAPLANE_CHECKSUMS_SHA256) .*!\1 ${DATAPLANE_CHECKSUMS_SHA256}!" \
+                s!^(ENV DATAPLANE_CHECKSUMS_SHA256) .*!\1 ${DATAPLANE_CHECKSUMS_SHA256}!
+                s!^(ARG GOPHERD_VERSION)=.*!\1=${GOPHERD_VERSION}!
+                s!^(ARG GOPHERD_CHECKSUMS_SHA256)=.*!\1=${GOPHERD_CHECKSUMS_SHA256}!" \
 		"${DOCKERFILE_API}"
 fi

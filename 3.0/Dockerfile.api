@@ -75,6 +75,7 @@ COPY --from=hapce-builder /usr/local/sbin/haproxy /usr/local/sbin/haproxy
 COPY --from=hapce-builder /tmp/haproxy/examples/errorfiles/ /usr/local/etc/haproxy/errors
 
 ARG GOPHERD_VERSION=1.3.3
+ARG GOPHERD_CHECKSUMS_SHA256=ecae88715224a0604d065551ad615a4824c52a9b86700c80664ec8387476a0c3
 
 COPY /fs /
 
@@ -128,9 +129,13 @@ RUN apt-get update && \
         *) echo "ARG TARGETPLATFORM undeclared" >&2 && exit 1 ;; \
     esac && \
     curl -sfSL -o /tmp/gopherd.tar.gz "https://github.com/haproxytech/gopherd/releases/download/v${GOPHERD_VERSION}/gopherd_${GOPHERD_VERSION}_Linux_${GOPHERD_ARCH}.tar.gz" && \
+    curl -sfSL -o /tmp/gopherd-checksums.txt "https://github.com/haproxytech/gopherd/releases/download/v${GOPHERD_VERSION}/checksums.txt" && \
+    echo "${GOPHERD_CHECKSUMS_SHA256}  /tmp/gopherd-checksums.txt" | sha256sum -c - && \
+    awk -v f="gopherd_${GOPHERD_VERSION}_Linux_${GOPHERD_ARCH}.tar.gz" '$2 == f {print $1 "  /tmp/gopherd.tar.gz"; n++} END {exit n != 1}' /tmp/gopherd-checksums.txt > /tmp/gopherd.sha256 && \
+    sha256sum -c /tmp/gopherd.sha256 && \
     tar -C /usr/local/bin -xzf /tmp/gopherd.tar.gz gopherd && \
     chmod 0755 /usr/local/bin/gopherd && \
-    rm -f /tmp/gopherd.tar.gz && \
+    rm -f /tmp/gopherd.tar.gz /tmp/gopherd-checksums.txt /tmp/gopherd.sha256 && \
     sed -e 's/^    stop-signal: SIGTERM$/    stop-signal: SIGUSR1/' \
         -e 's/^    kill-delay: 10s$/    kill-delay: 0s/' \
         /etc/gopherd/gopherd.yml > /etc/gopherd/gopherd-sigusr1.yml && \
