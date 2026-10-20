@@ -40,6 +40,13 @@ fi
 
 GIT_BRANCH=$(git symbolic-ref --short HEAD) || exit 1
 
+# update.sh fetches each GitHub release list once per run into this
+# directory instead of once per branch, which keeps a run well within the
+# API rate limit even without a GH_TOKEN
+RELEASES_CACHE=$(mktemp -d) || exit 1
+trap 'rm -rf "$RELEASES_CACHE"' EXIT
+export RELEASES_CACHE
+
 test_image() {
 	local dockerfile="$1" tag="$2" context="$3"
 
@@ -114,6 +121,7 @@ for i in $HAPROXY_BRANCHES; do
 	DOCKERFILE="$i/Dockerfile"
 	DOCKERFILE_API="$i/Dockerfile.api"
 	HAPROXY_MINOR_OLD=$(awk '/^ENV HAPROXY_MINOR/ {print $NF; exit}' "$DOCKERFILE")
+	HAPROXY_SHA256_OLD=$(awk '/^ENV HAPROXY_SHA256/ {print $NF; exit}' "$DOCKERFILE")
 	DATAPLANE_MINOR_OLD=$(awk '/^ENV DATAPLANE_MINOR/ {print $NF; exit}' "$DOCKERFILE")
 	DATAPLANE_V2_MINOR_OLD=$(awk '/^ENV DATAPLANE_V2_MINOR/ {print $NF; exit}' "$DOCKERFILE")
 	GOPHERD_VERSION_OLD=""
@@ -135,6 +143,7 @@ for i in $HAPROXY_BRANCHES; do
 	fi
 
 	HAPROXY_MINOR=$(awk '/^ENV HAPROXY_MINOR/ {print $NF; exit}' "$DOCKERFILE")
+	HAPROXY_SHA256=$(awk '/^ENV HAPROXY_SHA256/ {print $NF; exit}' "$DOCKERFILE")
 	DATAPLANE_MINOR=$(awk '/^ENV DATAPLANE_MINOR/ {print $NF; exit}' "$DOCKERFILE")
 	DATAPLANE_V2_MINOR=$(awk '/^ENV DATAPLANE_V2_MINOR/ {print $NF; exit}' "$DOCKERFILE")
 	GOPHERD_VERSION=""
@@ -161,6 +170,7 @@ for i in $HAPROXY_BRANCHES; do
 
 	if [ -z "$FORCE" ]; then
 		if [ "$HAPROXY_MINOR_OLD" = "$HAPROXY_MINOR" ] &&
+			[ "$HAPROXY_SHA256_OLD" = "$HAPROXY_SHA256" ] &&
 			[ "$DATAPLANE_MINOR_OLD" = "$DATAPLANE_MINOR" ] &&
 			[ "$DATAPLANE_V2_MINOR_OLD" = "$DATAPLANE_V2_MINOR" ] &&
 			[ "$GOPHERD_VERSION_OLD" = "$GOPHERD_VERSION" ]; then
@@ -181,8 +191,9 @@ for i in $HAPROXY_BRANCHES; do
 	# Name what changed in the commit message; only HAProxy releases are
 	# listed in the README commit message
 	if [ "$HAPROXY_MINOR_OLD" != "$HAPROXY_MINOR" ]; then
-		HAPROXY_UPDATED="$HAPROXY_UPDATED $HAPROXY_MINOR"
 		COMMIT_MSG="Automated commit triggered by $HAPROXY_MINOR release(s)"
+	elif [ "$HAPROXY_SHA256_OLD" != "$HAPROXY_SHA256" ]; then
+		COMMIT_MSG="Automated commit triggered by a replaced HAProxy $HAPROXY_MINOR tarball"
 	elif [ "$DATAPLANE_MINOR_OLD" != "$DATAPLANE_MINOR" ]; then
 		COMMIT_MSG="Automated commit triggered by Dataplane API $DATAPLANE_MINOR release for $HAPROXY_MINOR"
 	elif [ "$DATAPLANE_V2_MINOR_OLD" != "$DATAPLANE_V2_MINOR" ]; then
@@ -193,7 +204,20 @@ for i in $HAPROXY_BRANCHES; do
 		COMMIT_MSG="Automated rebuild of $HAPROXY_MINOR"
 	fi
 
-	git commit -m "$COMMIT_MSG" -- "$i" || true
+	# Only commit when something changed (force rebuilds have nothing to
+	# commit), and never tag after a failed commit: the tag would point at
+	# the previous release's files under the new version
+	if ! git diff --quiet HEAD -- "$i"; then
+		if ! git commit -m "$COMMIT_MSG" -- "$i"; then
+			echo "Failure committing $i branch"
+			HAPROXY_FAILED="$HAPROXY_FAILED $i"
+			git checkout HEAD -- "$i"
+			continue
+		fi
+	fi
+	if [ "$HAPROXY_MINOR_OLD" != "$HAPROXY_MINOR" ]; then
+		HAPROXY_UPDATED="$HAPROXY_UPDATED $HAPROXY_MINOR"
+	fi
 	push_release "$HAPROXY_MINOR"
 done
 
@@ -223,11 +247,14 @@ echo >>README.md
 cat README_short.md >>README.md
 
 if ! git diff --quiet -- README.md; then
+	README_MSG="README regen"
 	if [ -n "$HAPROXY_UPDATED" ]; then
-		git commit -m "README regen triggered by${HAPROXY_UPDATED} release(s)" -- README.md
-	else
-		git commit -m "README regen" -- README.md
+		README_MSG="README regen triggered by${HAPROXY_UPDATED} release(s)"
 	fi
+	git commit -m "$README_MSG" -- README.md || {
+		echo "Failure committing README.md"
+		exit 1
+	}
 	git push origin HEAD || {
 		echo "Failure pushing README.md"
 		exit 1

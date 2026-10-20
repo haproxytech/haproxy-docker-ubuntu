@@ -1,6 +1,24 @@
 #!/bin/bash
 set -e
 
+# Exit status when HAProxy was updated but Dataplane API or gopherd kept its
+# current pin; build.sh still ships the HAProxy update and reports the rest.
+# Every other failure exits with 1, whichever command failed: curl's own
+# exit statuses include 100 too
+UPDATE_PARTIAL=100
+PARTIAL=""
+TMP_DIR=""
+on_exit() {
+	local status=$?
+	if [ -n "${TMP_DIR}" ]; then
+		rm -rf "${TMP_DIR}"
+	fi
+	if [ "${status}" -ne 0 ] && [ -z "${PARTIAL}" ]; then
+		exit 1
+	fi
+}
+trap on_exit EXIT
+
 if test -z "$1"; then
 	echo "Missing branch as first argument"
 	exit 1
@@ -32,7 +50,8 @@ require_format "branch" "${HAPROXY_BRANCH}" '^[0-9]+\.[0-9]+$'
 DOCKERFILE="Dockerfile"
 DOCKERFILE_API="Dockerfile.api"
 HAPROXY_SRC_URL="https://www.haproxy.org/download"
-# Retry transient errors and never hang: a failed lookup skips the branch
+# Retry transient errors and never hang: a failed HAProxy lookup fails the
+# branch, a failed Dataplane API or gopherd lookup keeps that pin
 CURL=(curl -sfSL --retry 3 --retry-all-errors --connect-timeout 15 --max-time 60)
 
 if ! test -f "$DOCKERFILE"; then
@@ -72,18 +91,29 @@ if [ -z "${HAPROXY_SHA256}" ]; then
 fi
 require_format "HAProxy SHA256" "${HAPROXY_SHA256}" '^[0-9a-f]{64}$'
 
+TMP_DIR=$(mktemp -d)
+
+# The tarball has to match its published SHA256 before that gets pinned, also
+# when haproxy.org replaced the tarball of the pinned version. An unchanged
+# pin already matched when it was pinned
+HAPROXY_MINOR_OLD=$(awk '/^ENV HAPROXY_MINOR/ {print $NF; exit}' "${DOCKERFILE}")
+HAPROXY_SHA256_OLD=$(awk '/^ENV HAPROXY_SHA256/ {print $NF; exit}' "${DOCKERFILE}")
+if [ "${HAPROXY_MINOR}" != "${HAPROXY_MINOR_OLD}" ] || [ "${HAPROXY_SHA256}" != "${HAPROXY_SHA256_OLD}" ]; then
+	"${CURL[@]}" --max-time 300 -o "${TMP_DIR}/haproxy.tar.gz" \
+		"${HAPROXY_SRC_URL}/${HAPROXY_BRANCH}/${HAPROXY_SRC_DIR}/haproxy-${HAPROXY_MINOR}.tar.gz"
+	if ! echo "${HAPROXY_SHA256}  ${TMP_DIR}/haproxy.tar.gz" | sha256sum -c --status -; then
+		echo "HAProxy ${HAPROXY_MINOR} tarball does not match its published SHA256, refusing to update"
+		exit 1
+	fi
+	if [ "${HAPROXY_MINOR}" = "${HAPROXY_MINOR_OLD}" ]; then
+		echo "HAProxy ${HAPROXY_MINOR} tarball changed since it was pinned, pinning the new one: it matches its SHA256"
+	fi
+fi
+
 GITHUB_AUTH=()
 if [ -n "${GH_TOKEN}" ]; then
 	GITHUB_AUTH=(-H "Authorization: Bearer ${GH_TOKEN}")
 fi
-
-TMP_DIR=$(mktemp -d)
-trap 'rm -rf "${TMP_DIR}"' EXIT
-
-# Exit status when HAProxy was updated but Dataplane API or gopherd kept its
-# current pin; build.sh still ships the HAProxy update and reports the rest.
-# Outside the range curl and coreutils exit with
-UPDATE_PARTIAL=100
 
 # Apply the sed expressions $@ to the Dockerfile and, when there is one, to
 # the Dockerfile.api
@@ -103,14 +133,28 @@ rewrite -e "s!^(ENV HAPROXY_SRC_URL) .*!\1 ${HAPROXY_SRC_URL}!
 # Dataplane API and gopherd releases are looked up and pinned the same way.
 # Set RELEASE_VERSIONS to every release version of haproxytech/$1, one per
 # line and without the leading "v". Every page is read: a line that gets no
-# new releases drops off the first page as newer ones are published
+# new releases drops off the first page as newer ones are published. Drafts
+# are skipped: they are listed for tokens that can push to the repository.
+# build.sh points RELEASES_CACHE at a directory shared by all branches of a
+# run, so that each list is fetched once per run
 fetch_release_versions() {
-	local repo="$1" page content versions
+	local repo="$1" page content versions cache=""
+	if [ -n "${RELEASES_CACHE}" ]; then
+		cache="${RELEASES_CACHE}/${repo}"
+		if [ -f "${cache}" ]; then
+			RELEASE_VERSIONS=$(<"${cache}")
+			return 0
+		fi
+	fi
 	RELEASE_VERSIONS=""
 	for page in 1 2 3 4 5 6 7 8 9 10; do
 		content=$("${CURL[@]}" "${GITHUB_AUTH[@]}" "https://api.github.com/repos/haproxytech/${repo}/releases?per_page=100&page=${page}")
-		versions=$(echo "${content}" | grep -oE '"tag_name": *"[^"]*"' | sed -E 's/.*"v?([^"]*)"$/\1/')
+		versions=$(jq -r '.[] | select(.draft | not) | .tag_name | sub("^v"; "")' <<<"${content}")
 		if [ -z "${versions}" ]; then
+			if [ -n "${cache}" ]; then
+				printf '%s' "${RELEASE_VERSIONS}" >"${cache}.tmp"
+				mv "${cache}.tmp" "${cache}"
+			fi
 			return 0
 		fi
 		RELEASE_VERSIONS+="${versions}"$'\n'
@@ -138,7 +182,7 @@ pin_checksums() {
 		# A new release can show up before its files are uploaded: keep the
 		# pinned version for its first hours instead of failing
 		release=$("${CURL[@]}" "${GITHUB_AUTH[@]}" "https://api.github.com/repos/haproxytech/${repo}/releases/tags/v${version}")
-		published=$(echo "${release}" | grep -oE '"published_at": *"[^"]*"' | head -1 | sed -E 's/.*"([^"]*)"$/\1/')
+		published=$(jq -r '.published_at // empty' <<<"${release}")
 		require_format "${repo} v${version} publication time" "${published}" '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$'
 		if [ "${version}" = "${version_old}" ] || [ -z "${sha256_old}" ] ||
 			[ $(($(date +%s) - $(date -d "${published}" +%s))) -ge $((6 * 3600)) ]; then
@@ -272,5 +316,6 @@ run_part "Dataplane API" update_dataplane
 run_part "gopherd" update_gopherd
 
 if [ -n "${FAILED_PARTS}" ]; then
+	PARTIAL="yes"
 	exit "${UPDATE_PARTIAL}"
 fi
