@@ -75,7 +75,7 @@ COPY --from=hapce-builder /usr/local/sbin/haproxy /usr/local/sbin/haproxy
 COPY --from=hapce-builder /tmp/haproxy/examples/errorfiles/ /usr/local/etc/haproxy/errors
 
 ARG GOPHERD_VERSION=1.3.3
-ARG GOPHERD_CHECKSUMS_SHA256=ecae88715224a0604d065551ad615a4824c52a9b86700c80664ec8387476a0c3
+ARG GOPHERD_CHECKSUMS_SHA256=acf10b87d6eda8cfc14052299bfa2c875f5c62e4974963a30f2b31bfbc428622
 
 COPY /fs /
 
