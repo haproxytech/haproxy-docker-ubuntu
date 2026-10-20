@@ -133,7 +133,7 @@ RUN apt-get update && \
     echo "${GOPHERD_CHECKSUMS_SHA256}  /tmp/gopherd-checksums.txt" | sha256sum -c - && \
     awk -v f="gopherd_${GOPHERD_VERSION}_Linux_${GOPHERD_ARCH}.tar.gz" '$2 == f {print $1 "  /tmp/gopherd.tar.gz"; n++} END {exit n != 1}' /tmp/gopherd-checksums.txt > /tmp/gopherd.sha256 && \
     sha256sum -c /tmp/gopherd.sha256 && \
-    tar -C /usr/local/bin -xzf /tmp/gopherd.tar.gz gopherd && \
+    tar --no-same-owner -C /usr/local/bin -xzf /tmp/gopherd.tar.gz gopherd && \
     chmod 0755 /usr/local/bin/gopherd && \
     rm -f /tmp/gopherd.tar.gz /tmp/gopherd-checksums.txt /tmp/gopherd.sha256 && \
     sed -e 's/^    stop-signal: SIGTERM$/    stop-signal: SIGUSR1/' \

@@ -40,9 +40,6 @@ if ! test -f "$DOCKERFILE"; then
 	exit 1
 fi
 
-DATAPLANE_MINOR_OLD=$(awk '/^ENV DATAPLANE_MINOR/ {print $NF; exit}' "$DOCKERFILE")
-DATAPLANE_CHECKSUMS_SHA256_OLD=$(awk '/^ENV DATAPLANE_CHECKSUMS_SHA256/ {print $NF; exit}' "$DOCKERFILE")
-
 # Fetch listings separately so that set -e aborts on download errors: a failed
 # stable listing must not fall through to devel/, which still holds stale -dev
 # releases for stable branches
@@ -83,6 +80,26 @@ fi
 TMP_DIR=$(mktemp -d)
 trap 'rm -rf "${TMP_DIR}"' EXIT
 
+# Exit status when HAProxy was updated but Dataplane API or gopherd kept its
+# current pin; build.sh still ships the HAProxy update and reports the rest.
+# Outside the range curl and coreutils exit with
+UPDATE_PARTIAL=100
+
+# Apply the sed expressions $@ to the Dockerfile and, when there is one, to
+# the Dockerfile.api
+rewrite() {
+	sed -r -i "$@" "${DOCKERFILE}"
+	if [ -f "${DOCKERFILE_API}" ]; then
+		sed -r -i "$@" "${DOCKERFILE_API}"
+	fi
+}
+
+rewrite -e "s!^(ENV HAPROXY_SRC_URL) .*!\1 ${HAPROXY_SRC_URL}!
+            s!^(ENV HAPROXY_BRANCH) .*!\1 ${HAPROXY_BRANCH}!
+            s!^(ENV HAPROXY_MINOR) .*!\1 ${HAPROXY_MINOR}!
+            s!^(LABEL Version) .*!\1 ${HAPROXY_MINOR}!
+            s!^(ENV HAPROXY_SHA256) .*!\1 ${HAPROXY_SHA256}!"
+
 # Dataplane API and gopherd releases are looked up and pinned the same way.
 # Set RELEASE_VERSIONS to every release version of haproxytech/$1, one per
 # line and without the leading "v". Every page is read: a line that gets no
@@ -107,15 +124,32 @@ highest_version() {
 	grep -E "$1" <<<"${RELEASE_VERSIONS}" | sort -V | tail -1
 }
 
-# Set CHECKSUMS_SHA256 to the hash of checksums.txt of haproxytech/$1 release
-# v$2: the Dockerfile verifies checksums.txt against it and the downloaded
-# tarball against checksums.txt. A release's files never change once
-# published, so a different hash for the already pinned version $3 (pinned
-# hash $4) means they were replaced
+# Set PIN_VERSION to the version of haproxytech/$1 to pin, normally $2, and
+# CHECKSUMS_SHA256 to the hash of its checksums.txt: the Dockerfile verifies
+# checksums.txt against it and the downloaded tarball against checksums.txt.
+# $3 and $4 are the version and hash pinned now. A release's files are not
+# supposed to change once published, so a different hash for the pinned
+# version means they were replaced
 pin_checksums() {
 	local repo="$1" version="$2" version_old="$3" sha256_old="$4"
-	local file="${TMP_DIR}/${repo}-checksums.txt"
-	"${CURL[@]}" -o "${file}" "https://github.com/haproxytech/${repo}/releases/download/v${version}/checksums.txt"
+	local file="${TMP_DIR}/${repo}-checksums.txt" release published
+	PIN_VERSION="${version}"
+	if ! "${CURL[@]}" -o "${file}" "https://github.com/haproxytech/${repo}/releases/download/v${version}/checksums.txt"; then
+		# A new release can show up before its files are uploaded: keep the
+		# pinned version for its first hours instead of failing
+		release=$("${CURL[@]}" "${GITHUB_AUTH[@]}" "https://api.github.com/repos/haproxytech/${repo}/releases/tags/v${version}")
+		published=$(echo "${release}" | grep -oE '"published_at": *"[^"]*"' | head -1 | sed -E 's/.*"([^"]*)"$/\1/')
+		require_format "${repo} v${version} publication time" "${published}" '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$'
+		if [ "${version}" = "${version_old}" ] || [ -z "${sha256_old}" ] ||
+			[ $(($(date +%s) - $(date -d "${published}" +%s))) -ge $((6 * 3600)) ]; then
+			echo "Cannot download checksums.txt of ${repo} v${version}"
+			exit 1
+		fi
+		echo "checksums.txt of ${repo} v${version} not uploaded yet, keeping v${version_old}"
+		PIN_VERSION="${version_old}"
+		CHECKSUMS_SHA256="${sha256_old}"
+		return 0
+	fi
 	CHECKSUMS_SHA256=$(sha256sum "${file}" | awk '{print $1}')
 	require_format "${repo} checksums.txt SHA256" "${CHECKSUMS_SHA256}" '^[0-9a-f]{64}$'
 	if [ "${version}" = "${version_old}" ] &&
@@ -126,102 +160,117 @@ pin_checksums() {
 	fi
 }
 
-require_format "pinned Dataplane API version" "${DATAPLANE_MINOR_OLD}" '^[0-9]+\.[0-9]+\.[0-9]+$'
-fetch_release_versions dataplaneapi
-DATAPLANE_BRANCH="${HAPROXY_BRANCH}"
+update_dataplane() {
+	local old checksums_old
+	old=$(awk '/^ENV DATAPLANE_MINOR/ {print $NF; exit}' "${DOCKERFILE}")
+	checksums_old=$(awk '/^ENV DATAPLANE_CHECKSUMS_SHA256/ {print $NF; exit}' "${DOCKERFILE}")
+	require_format "pinned Dataplane API version" "${old}" '^[0-9]+\.[0-9]+\.[0-9]+$'
+	fetch_release_versions dataplaneapi
 
-# HAProxy 2.x images ship the latest Dataplane API 3.x (plus v2 as dataplaneapi-v2),
-# so skip matching old v2.x Dataplane releases against the HAProxy branch
-DATAPLANE_MINOR=""
-case "${DATAPLANE_BRANCH}" in
-2.*) ;;
-*)
-	DATAPLANE_MINOR=$(highest_version "^${HAPROXY_BRANCH_RE}\.[0-9]+\$")
-	;;
-esac
-
-# Fall back to the highest stable version of the pinned major version, as for
-# gopherd: a new major can change the dataplaneapi.yml format.
-# Only for branches without a Dataplane API line of their own (2.x, or a new
-# branch before its first Dataplane API release): a branch already on its own
-# line must not silently switch to another one
-if [ -z "${DATAPLANE_MINOR}" ]; then
-	case "${DATAPLANE_MINOR_OLD}" in
-	"${DATAPLANE_BRANCH}".*)
-		echo "No Dataplane API ${DATAPLANE_BRANCH}.x release found, refusing to switch from ${DATAPLANE_MINOR_OLD}"
-		exit 1
+	# HAProxy 2.x images ship the latest Dataplane API 3.x (plus v2 as dataplaneapi-v2),
+	# so skip matching old v2.x Dataplane releases against the HAProxy branch
+	DATAPLANE_MINOR=""
+	case "${HAPROXY_BRANCH}" in
+	2.*) ;;
+	*)
+		DATAPLANE_MINOR=$(highest_version "^${HAPROXY_BRANCH_RE}\.[0-9]+\$")
 		;;
 	esac
-	DATAPLANE_MINOR=$(highest_version "^${DATAPLANE_MINOR_OLD%%.*}\.[0-9]+\.[0-9]+\$")
-fi
 
-DATAPLANE_V2_MINOR=$(highest_version '^2\.[0-9]+\.[0-9]+$')
+	# Fall back to the highest stable version of the pinned major version, as for
+	# gopherd: a new major can change the dataplaneapi.yml format.
+	# Only for branches without a Dataplane API line of their own (2.x, or a new
+	# branch before its first Dataplane API release): a branch already on its own
+	# line must not silently switch to another one
+	if [ -z "${DATAPLANE_MINOR}" ]; then
+		case "${old}" in
+		"${HAPROXY_BRANCH}".*)
+			echo "No Dataplane API ${HAPROXY_BRANCH}.x release found, refusing to switch from ${old}"
+			exit 1
+			;;
+		esac
+		DATAPLANE_MINOR=$(highest_version "^${old%%.*}\.[0-9]+\.[0-9]+\$")
+	fi
 
-if [ -z "${DATAPLANE_MINOR}" ]; then
-	echo "Could not identify latest Dataplane API release for ${DATAPLANE_BRANCH} branch"
-	exit 1
-fi
+	DATAPLANE_V2_MINOR=$(highest_version '^2\.[0-9]+\.[0-9]+$')
 
-if [ -z "${DATAPLANE_V2_MINOR}" ] && grep -q "^ENV DATAPLANE_V2_MINOR" "${DOCKERFILE}"; then
-	echo "Could not identify latest Dataplane API v2 release"
-	exit 1
-fi
+	if [ -z "${DATAPLANE_MINOR}" ]; then
+		echo "Could not identify latest Dataplane API release for ${HAPROXY_BRANCH} branch"
+		exit 1
+	fi
 
-require_format "Dataplane API version" "${DATAPLANE_MINOR}" '^[0-9]+\.[0-9]+\.[0-9]+$'
-if [ -n "${DATAPLANE_V2_MINOR}" ]; then
-	require_format "Dataplane API v2 version" "${DATAPLANE_V2_MINOR}" '^2\.[0-9]+\.[0-9]+$'
-fi
+	if [ -z "${DATAPLANE_V2_MINOR}" ] && grep -q "^ENV DATAPLANE_V2_MINOR" "${DOCKERFILE}"; then
+		echo "Could not identify latest Dataplane API v2 release"
+		exit 1
+	fi
 
-# Only for Dockerfiles that download a prebuilt Dataplane API; 2.x images
-# build it from source
-DATAPLANE_CHECKSUMS_SHA256=""
-if grep -q "^ENV DATAPLANE_CHECKSUMS_SHA256" "${DOCKERFILE}"; then
-	pin_checksums dataplaneapi "${DATAPLANE_MINOR}" "${DATAPLANE_MINOR_OLD}" "${DATAPLANE_CHECKSUMS_SHA256_OLD}"
-	DATAPLANE_CHECKSUMS_SHA256="${CHECKSUMS_SHA256}"
-fi
+	require_format "Dataplane API version" "${DATAPLANE_MINOR}" '^[0-9]+\.[0-9]+\.[0-9]+$'
+	if [ -n "${DATAPLANE_V2_MINOR}" ]; then
+		require_format "Dataplane API v2 version" "${DATAPLANE_V2_MINOR}" '^2\.[0-9]+\.[0-9]+$'
+	fi
+
+	# Only for Dockerfiles that download a prebuilt Dataplane API; 2.x images
+	# build it from source
+	DATAPLANE_CHECKSUMS_SHA256=""
+	if grep -q "^ENV DATAPLANE_CHECKSUMS_SHA256" "${DOCKERFILE}"; then
+		pin_checksums dataplaneapi "${DATAPLANE_MINOR}" "${old}" "${checksums_old}"
+		DATAPLANE_MINOR="${PIN_VERSION}"
+		DATAPLANE_CHECKSUMS_SHA256="${CHECKSUMS_SHA256}"
+	fi
+
+	rewrite -e "s!^(ENV DATAPLANE_MINOR) .*!\1 ${DATAPLANE_MINOR}!
+	            s!^(ENV DATAPLANE_V2_MINOR) .*!\1 ${DATAPLANE_V2_MINOR}!
+	            s!^(ENV DATAPLANE_CHECKSUMS_SHA256) .*!\1 ${DATAPLANE_CHECKSUMS_SHA256}!"
+}
 
 # gopherd only ships in the s6 images (Dockerfile.api). Stay on the pinned
 # major version: a new major can change the gopherd.yml format
-GOPHERD_VERSION=""
-GOPHERD_CHECKSUMS_SHA256=""
-if [ -f "${DOCKERFILE_API}" ] && grep -q "^ARG GOPHERD_VERSION=" "${DOCKERFILE_API}"; then
-	GOPHERD_VERSION_OLD=$(awk -F= '/^ARG GOPHERD_VERSION=/ {print $2; exit}' "${DOCKERFILE_API}")
-	GOPHERD_CHECKSUMS_SHA256_OLD=$(awk -F= '/^ARG GOPHERD_CHECKSUMS_SHA256=/ {print $2; exit}' "${DOCKERFILE_API}")
-	require_format "pinned gopherd version" "${GOPHERD_VERSION_OLD}" '^[0-9]+\.[0-9]+\.[0-9]+$'
+update_gopherd() {
+	local old checksums_old
+	if ! [ -f "${DOCKERFILE_API}" ] || ! grep -q "^ARG GOPHERD_VERSION=" "${DOCKERFILE_API}"; then
+		return 0
+	fi
+	old=$(awk -F= '/^ARG GOPHERD_VERSION=/ {print $2; exit}' "${DOCKERFILE_API}")
+	checksums_old=$(awk -F= '/^ARG GOPHERD_CHECKSUMS_SHA256=/ {print $2; exit}' "${DOCKERFILE_API}")
+	require_format "pinned gopherd version" "${old}" '^[0-9]+\.[0-9]+\.[0-9]+$'
 
 	fetch_release_versions gopherd
-	GOPHERD_VERSION=$(highest_version "^${GOPHERD_VERSION_OLD%%.*}\.[0-9]+\.[0-9]+\$")
+	GOPHERD_VERSION=$(highest_version "^${old%%.*}\.[0-9]+\.[0-9]+\$")
 
 	if [ -z "${GOPHERD_VERSION}" ]; then
-		echo "Could not identify latest gopherd ${GOPHERD_VERSION_OLD%%.*}.x release"
+		echo "Could not identify latest gopherd ${old%%.*}.x release"
 		exit 1
 	fi
 	require_format "gopherd version" "${GOPHERD_VERSION}" '^[0-9]+\.[0-9]+\.[0-9]+$'
 
-	pin_checksums gopherd "${GOPHERD_VERSION}" "${GOPHERD_VERSION_OLD}" "${GOPHERD_CHECKSUMS_SHA256_OLD}"
-	GOPHERD_CHECKSUMS_SHA256="${CHECKSUMS_SHA256}"
-fi
+	pin_checksums gopherd "${GOPHERD_VERSION}" "${old}" "${checksums_old}"
 
-sed -r -i -e "s!^(ENV HAPROXY_SRC_URL) .*!\1 ${HAPROXY_SRC_URL}!;
-            s!^(ENV HAPROXY_BRANCH) .*!\1 ${HAPROXY_BRANCH}!;
-            s!^(ENV HAPROXY_MINOR) .*!\1 ${HAPROXY_MINOR}!;
-            s!^(LABEL Version) .*!\1 ${HAPROXY_MINOR}!;
-            s!^(ENV HAPROXY_SHA256) .*!\1 ${HAPROXY_SHA256}!
-            s!^(ENV DATAPLANE_MINOR) .*!\1 ${DATAPLANE_MINOR}!
-            s!^(ENV DATAPLANE_V2_MINOR) .*!\1 ${DATAPLANE_V2_MINOR}!
-            s!^(ENV DATAPLANE_CHECKSUMS_SHA256) .*!\1 ${DATAPLANE_CHECKSUMS_SHA256}!" \
-	"${DOCKERFILE}"
+	rewrite -e "s!^(ARG GOPHERD_VERSION)=.*!\1=${PIN_VERSION}!
+	            s!^(ARG GOPHERD_CHECKSUMS_SHA256)=.*!\1=${CHECKSUMS_SHA256}!"
+}
 
-if [ -f "${DOCKERFILE_API}" ]; then
-	sed -r -i -e "s!^(ENV HAPROXY_SRC_URL) .*!\1 ${HAPROXY_SRC_URL}!;
-                s!^(ENV HAPROXY_BRANCH) .*!\1 ${HAPROXY_BRANCH}!;
-                s!^(ENV HAPROXY_MINOR) .*!\1 ${HAPROXY_MINOR}!;
-                s!^(LABEL Version) .*!\1 ${HAPROXY_MINOR}!;
-                s!^(ENV HAPROXY_SHA256) .*!\1 ${HAPROXY_SHA256}!
-                s!^(ENV DATAPLANE_MINOR) .*!\1 ${DATAPLANE_MINOR}!
-                s!^(ENV DATAPLANE_V2_MINOR) .*!\1 ${DATAPLANE_V2_MINOR}!
-                s!^(ENV DATAPLANE_CHECKSUMS_SHA256) .*!\1 ${DATAPLANE_CHECKSUMS_SHA256}!
-                s!^(ARG GOPHERD_VERSION)=.*!\1=${GOPHERD_VERSION}!
-                s!^(ARG GOPHERD_CHECKSUMS_SHA256)=.*!\1=${GOPHERD_CHECKSUMS_SHA256}!" \
-		"${DOCKERFILE_API}"
+# Run update step $2 for $1 in a subshell, where set -e still applies and
+# stops only that step: its pin stays as it was, and the HAProxy update above
+# still goes out
+FAILED_PARTS=""
+run_part() {
+	local name="$1" step="$2" status
+	set +e
+	(
+		set -e
+		"${step}"
+	)
+	status=$?
+	set -e
+	if [ "${status}" -ne 0 ]; then
+		echo "Could not update ${name}, keeping its current pin"
+		FAILED_PARTS="${FAILED_PARTS} ${name}"
+	fi
+}
+
+run_part "Dataplane API" update_dataplane
+run_part "gopherd" update_gopherd
+
+if [ -n "${FAILED_PARTS}" ]; then
+	exit "${UPDATE_PARTIAL}"
 fi

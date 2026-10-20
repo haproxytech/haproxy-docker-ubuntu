@@ -7,6 +7,9 @@ HAPROXY_BRANCHES=$(printf '%s\n' [0-9]*/ | tr -d / | sort -V)
 HAPROXY_CURRENT_BRANCH=$(cat STABLE_BRANCH 2>/dev/null)
 HAPROXY_UPDATED=""
 HAPROXY_FAILED=""
+HAPROXY_PARTIAL=""
+# Exit status of update.sh when only HAProxy could be updated
+UPDATE_PARTIAL=100
 
 # Arguments, in any order: "force" rebuilds branches without new releases,
 # "test" builds and checks the images locally before committing
@@ -118,7 +121,13 @@ for i in $HAPROXY_BRANCHES; do
 		GOPHERD_VERSION_OLD=$(awk -F= '/^ARG GOPHERD_VERSION=/ {print $2; exit}' "$DOCKERFILE_API")
 	fi
 
-	if ! ./update.sh "$i"; then
+	# Status UPDATE_PARTIAL: HAProxy was updated but Dataplane API or gopherd
+	# kept its pin. The HAProxy update still ships; the run fails at the end
+	./update.sh "$i"
+	UPDATE_STATUS=$?
+	if [ "$UPDATE_STATUS" -eq "$UPDATE_PARTIAL" ]; then
+		HAPROXY_PARTIAL="$HAPROXY_PARTIAL $i"
+	elif [ "$UPDATE_STATUS" -ne 0 ]; then
 		echo "Failure updating $i branch"
 		HAPROXY_FAILED="$HAPROXY_FAILED $i"
 		git checkout -- "$i"
@@ -225,8 +234,14 @@ if ! git diff --quiet -- README.md; then
 	}
 fi
 
-# Fail the run so that skipped branches do not go unnoticed
+# Fail the run so that skipped branches and held back Dataplane API or
+# gopherd updates do not go unnoticed
+if [ -n "$HAPROXY_PARTIAL" ]; then
+	echo "Branches that kept their Dataplane API or gopherd pin:$HAPROXY_PARTIAL"
+fi
 if [ -n "$HAPROXY_FAILED" ]; then
 	echo "Failed branches:$HAPROXY_FAILED"
+fi
+if [ -n "$HAPROXY_PARTIAL" ] || [ -n "$HAPROXY_FAILED" ]; then
 	exit 1
 fi
