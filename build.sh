@@ -8,6 +8,21 @@ HAPROXY_CURRENT_BRANCH=$(cat STABLE_BRANCH 2>/dev/null)
 HAPROXY_UPDATED=""
 HAPROXY_FAILED=""
 
+# Arguments, in any order: "force" rebuilds branches without new releases,
+# "test" builds and checks the images locally before committing
+FORCE=""
+TEST=""
+for arg in "$@"; do
+	case "$arg" in
+	force) FORCE="yes" ;;
+	test) TEST="yes" ;;
+	*)
+		echo "Unknown argument '$arg', expected force and/or test"
+		exit 1
+		;;
+	esac
+done
+
 if [ -z "$HAPROXY_CURRENT_BRANCH" ]; then
 	echo "Cannot read stable branch from STABLE_BRANCH"
 	exit 1
@@ -28,14 +43,30 @@ test_image() {
 	docker build --pull -f "$dockerfile" -t "$tag" "$context" ||
 		{
 			echo "Failure building $tag"
-			exit 1
+			return 1
 		}
 
 	docker run --rm --entrypoint /usr/local/sbin/haproxy "$tag" -c -f /usr/local/etc/haproxy/haproxy.cfg ||
 		{
 			echo "Failure testing $tag"
-			exit 1
+			return 1
 		}
+}
+
+# Build and check the plain image and, when there is one, the s6 image of
+# branch $1 at release $2
+test_branch() {
+	local branch="$1" minor="$2"
+
+	test_image "$branch/Dockerfile" "$DOCKER_TAG:$minor" "$branch" || return 1
+	docker tag "$DOCKER_TAG:$minor" "$DOCKER_TAG:$branch"
+	if [ "$branch" = "$HAPROXY_CURRENT_BRANCH" ]; then
+		docker tag "$DOCKER_TAG:$minor" "$DOCKER_TAG:latest"
+	fi
+
+	if [ -f "$branch/Dockerfile.api" ]; then
+		test_image "$branch/Dockerfile.api" "$DOCKER_TAG:s6-$minor" "$branch" || return 1
+	fi
 }
 
 # Succeeds when version $2 is older than version $1
@@ -44,16 +75,19 @@ is_downgrade() {
 }
 
 push_release() {
-	local tag="$1" remote_head
+	local tag="$1" remote_ref remote_head
 
 	# Check first that the push can succeed: deleting the old tag and then
 	# failing would leave the release without a tag, and image tagging relies
-	# on the tags to tell which release of a branch is the newest
-	remote_head=$(git ls-remote origin "refs/heads/$GIT_BRANCH" | cut -f1) ||
+	# on the tags to tell which release of a branch is the newest. Read the ref
+	# on its own: in a pipeline a failed ls-remote would go unnoticed and skip
+	# the check
+	remote_ref=$(git ls-remote origin "refs/heads/$GIT_BRANCH") ||
 		{
 			echo "Cannot read origin/$GIT_BRANCH"
 			exit 1
 		}
+	remote_head=$(echo "$remote_ref" | cut -f1)
 	if [ -n "$remote_head" ] && ! git merge-base --is-ancestor "$remote_head" HEAD 2>/dev/null; then
 		echo "origin/$GIT_BRANCH has new commits, not pushing $tag"
 		exit 1
@@ -116,7 +150,7 @@ for i in $HAPROXY_BRANCHES; do
 		continue
 	fi
 
-	if [ "$1" != "force" ]; then
+	if [ -z "$FORCE" ]; then
 		if [ "$HAPROXY_MINOR_OLD" = "$HAPROXY_MINOR" ] &&
 			[ "$DATAPLANE_MINOR_OLD" = "$DATAPLANE_MINOR" ] &&
 			[ "$DATAPLANE_V2_MINOR_OLD" = "$DATAPLANE_V2_MINOR" ] &&
@@ -125,6 +159,14 @@ for i in $HAPROXY_BRANCHES; do
 			git checkout -- "$i"
 			continue
 		fi
+	fi
+
+	# A branch whose images do not build is skipped like a failed update, so
+	# the remaining branches still get their releases
+	if [ -n "$TEST" ] && ! test_branch "$i" "$HAPROXY_MINOR"; then
+		HAPROXY_FAILED="$HAPROXY_FAILED $i"
+		git checkout -- "$i"
+		continue
 	fi
 
 	# Name what changed in the commit message; only HAProxy releases are
@@ -140,19 +182,6 @@ for i in $HAPROXY_BRANCHES; do
 		COMMIT_MSG="Automated commit triggered by gopherd $GOPHERD_VERSION release for $HAPROXY_MINOR"
 	else
 		COMMIT_MSG="Automated rebuild of $HAPROXY_MINOR"
-	fi
-
-	if [ "$1" = "test" ] || [ "$2" = "test" ]; then
-		test_image "$DOCKERFILE" "$DOCKER_TAG:$HAPROXY_MINOR" "$i"
-		docker tag "$DOCKER_TAG:$HAPROXY_MINOR" "$DOCKER_TAG:$i"
-
-		if [ "$i" = "$HAPROXY_CURRENT_BRANCH" ]; then
-			docker tag "$DOCKER_TAG:$HAPROXY_MINOR" "$DOCKER_TAG:latest"
-		fi
-
-		if [ -f "$DOCKERFILE_API" ]; then
-			test_image "$DOCKERFILE_API" "$DOCKER_TAG:s6-$HAPROXY_MINOR" "$i"
-		fi
 	fi
 
 	git commit -m "$COMMIT_MSG" -- "$i" || true
