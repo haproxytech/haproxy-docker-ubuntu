@@ -174,12 +174,19 @@ highest_version() {
 # version means they were replaced
 pin_checksums() {
 	local repo="$1" version="$2" version_old="$3" sha256_old="$4"
-	local file="${TMP_DIR}/${repo}-checksums.txt" release published
+	local file="${TMP_DIR}/${repo}-checksums.txt" release asset published
 	PIN_VERSION="${version}"
-	if ! "${CURL[@]}" -o "${file}" "https://github.com/haproxytech/${repo}/releases/download/v${version}/checksums.txt"; then
+	# Download through the API asset endpoint, not github.com/.../releases/download:
+	# github.com answers anonymous clients with 504s under load, which failed
+	# every run during GitHub's 2026-11-09 incident
+	release=$("${CURL[@]}" "${GITHUB_AUTH[@]}" "https://api.github.com/repos/haproxytech/${repo}/releases/tags/v${version}")
+	asset=$(jq -r '[.assets[]? | select(.name == "checksums.txt") | .url][0] // empty' <<<"${release}")
+	if [ -n "${asset}" ]; then
+		require_format "${repo} v${version} checksums.txt URL" "${asset}" "^https://api\.github\.com/repos/haproxytech/${repo}/releases/assets/[0-9]+\$"
+	fi
+	if [ -z "${asset}" ] || ! "${CURL[@]}" "${GITHUB_AUTH[@]}" -H "Accept: application/octet-stream" -o "${file}" "${asset}"; then
 		# A new release can show up before its files are uploaded: keep the
 		# pinned version for its first hours instead of failing
-		release=$("${CURL[@]}" "${GITHUB_AUTH[@]}" "https://api.github.com/repos/haproxytech/${repo}/releases/tags/v${version}")
 		published=$(jq -r '.published_at // empty' <<<"${release}")
 		require_format "${repo} v${version} publication time" "${published}" '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$'
 		if [ "${version}" = "${version_old}" ] || [ -z "${sha256_old}" ] ||
