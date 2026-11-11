@@ -74,8 +74,8 @@ COPY --from=awslc-builder /opt/aws-lc /opt/aws-lc
 COPY --from=hapce-builder /usr/local/sbin/haproxy /usr/local/sbin/haproxy
 COPY --from=hapce-builder /tmp/haproxy/examples/errorfiles/ /usr/local/etc/haproxy/errors
 
-ARG GOPHERD_VERSION=1.3.5
-ARG GOPHERD_CHECKSUMS_SHA256=e78b22476fc81137cd5b828a3c43919d4e390f8f7899e7880cdbcd639036622b
+ARG GOPHERD_VERSION=1.3.6
+ARG GOPHERD_CHECKSUMS_SHA256=94aa1e57ea08fd308f61bfdf0a6120dfec9bc8c2fdc2d2a43aa3b445274baba9
 
 COPY /fs /
 
