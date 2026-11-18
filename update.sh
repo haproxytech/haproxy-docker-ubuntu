@@ -84,8 +84,8 @@ TMP_DIR=$(mktemp -d)
 # The tarball has to match its published SHA256 before that gets pinned, also
 # when haproxy.org replaced the tarball of the pinned version. An unchanged
 # pin already matched when it was pinned
-HAPROXY_MINOR_OLD=$(awk '/^ENV HAPROXY_MINOR/ {print $NF; exit}' "${DOCKERFILE}")
-HAPROXY_SHA256_OLD=$(awk '/^ENV HAPROXY_SHA256/ {print $NF; exit}' "${DOCKERFILE}")
+HAPROXY_MINOR_OLD=$(awk -F= '/^ENV HAPROXY_MINOR=/ {print $2; exit}' "${DOCKERFILE}")
+HAPROXY_SHA256_OLD=$(awk -F= '/^ENV HAPROXY_SHA256=/ {print $2; exit}' "${DOCKERFILE}")
 if [ "${HAPROXY_MINOR}" != "${HAPROXY_MINOR_OLD}" ] || [ "${HAPROXY_SHA256}" != "${HAPROXY_SHA256_OLD}" ]; then
 	"${CURL[@]}" --max-time 300 -o "${TMP_DIR}/haproxy.tar.gz" \
 		"${HAPROXY_SRC_URL}/${HAPROXY_BRANCH}/${HAPROXY_SRC_DIR}/haproxy-${HAPROXY_MINOR}.tar.gz"
@@ -112,11 +112,11 @@ rewrite() {
 	fi
 }
 
-rewrite -e "s!^(ENV HAPROXY_SRC_URL) .*!\1 ${HAPROXY_SRC_URL}!
-            s!^(ENV HAPROXY_BRANCH) .*!\1 ${HAPROXY_BRANCH}!
-            s!^(ENV HAPROXY_MINOR) .*!\1 ${HAPROXY_MINOR}!
-            s!^(LABEL Version) .*!\1 ${HAPROXY_MINOR}!
-            s!^(ENV HAPROXY_SHA256) .*!\1 ${HAPROXY_SHA256}!" \
+rewrite -e "s!^(ENV HAPROXY_SRC_URL)=.*!\1=${HAPROXY_SRC_URL}!
+            s!^(ENV HAPROXY_BRANCH)=.*!\1=${HAPROXY_BRANCH}!
+            s!^(ENV HAPROXY_MINOR)=.*!\1=${HAPROXY_MINOR}!
+            s!^(LABEL Version)=.*!\1=${HAPROXY_MINOR}!
+            s!^(ENV HAPROXY_SHA256)=.*!\1=${HAPROXY_SHA256}!" \
 	-e 's!/src/(devel/)?(haproxy-\$\{HAPROXY_MINOR\}\.tar\.gz)!/'"${HAPROXY_SRC_DIR}"'/\2!'
 
 # The tarball moves from src/devel/ to src/ with a branch's first stable
@@ -211,8 +211,8 @@ pin_checksums() {
 
 update_dataplane() {
 	local old checksums_old
-	old=$(awk '/^ENV DATAPLANE_MINOR/ {print $NF; exit}' "${DOCKERFILE}")
-	checksums_old=$(awk '/^ENV DATAPLANE_CHECKSUMS_SHA256/ {print $NF; exit}' "${DOCKERFILE}")
+	old=$(awk -F= '/^ENV DATAPLANE_MINOR=/ {print $2; exit}' "${DOCKERFILE}")
+	checksums_old=$(awk -F= '/^ENV DATAPLANE_CHECKSUMS_SHA256=/ {print $2; exit}' "${DOCKERFILE}")
 	require_format "pinned Dataplane API version" "${old}" '^[0-9]+\.[0-9]+\.[0-9]+$'
 	fetch_release_versions dataplaneapi
 
@@ -248,7 +248,7 @@ update_dataplane() {
 		exit 1
 	fi
 
-	if [ -z "${DATAPLANE_V2_MINOR}" ] && grep -q "^ENV DATAPLANE_V2_MINOR" "${DOCKERFILE}"; then
+	if [ -z "${DATAPLANE_V2_MINOR}" ] && grep -q "^ENV DATAPLANE_V2_MINOR=" "${DOCKERFILE}"; then
 		echo "Could not identify latest Dataplane API v2 release"
 		exit 1
 	fi
@@ -261,15 +261,15 @@ update_dataplane() {
 	# Only for Dockerfiles that download a prebuilt Dataplane API; 2.x images
 	# build it from source
 	DATAPLANE_CHECKSUMS_SHA256=""
-	if grep -q "^ENV DATAPLANE_CHECKSUMS_SHA256" "${DOCKERFILE}"; then
+	if grep -q "^ENV DATAPLANE_CHECKSUMS_SHA256=" "${DOCKERFILE}"; then
 		pin_checksums dataplaneapi "${DATAPLANE_MINOR}" "${old}" "${checksums_old}"
 		DATAPLANE_MINOR="${PIN_VERSION}"
 		DATAPLANE_CHECKSUMS_SHA256="${CHECKSUMS_SHA256}"
 	fi
 
-	rewrite -e "s!^(ENV DATAPLANE_MINOR) .*!\1 ${DATAPLANE_MINOR}!
-	            s!^(ENV DATAPLANE_V2_MINOR) .*!\1 ${DATAPLANE_V2_MINOR}!
-	            s!^(ENV DATAPLANE_CHECKSUMS_SHA256) .*!\1 ${DATAPLANE_CHECKSUMS_SHA256}!"
+	rewrite -e "s!^(ENV DATAPLANE_MINOR)=.*!\1=${DATAPLANE_MINOR}!
+	            s!^(ENV DATAPLANE_V2_MINOR)=.*!\1=${DATAPLANE_V2_MINOR}!
+	            s!^(ENV DATAPLANE_CHECKSUMS_SHA256)=.*!\1=${DATAPLANE_CHECKSUMS_SHA256}!"
 }
 
 # gopherd only ships in the s6 images (Dockerfile.api). Stay on the pinned

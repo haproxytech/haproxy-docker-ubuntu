@@ -1,9 +1,9 @@
 FROM ubuntu:noble AS awslc-builder
 
-ENV AWSLC_URL https://github.com/aws/aws-lc.git
-ENV AWSLC_TAG v4.0.0
+ENV AWSLC_URL=https://github.com/aws/aws-lc.git
+ENV AWSLC_TAG=v4.0.0
 
-ENV DEBIAN_FRONTEND noninteractive
+ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends build-essential ca-certificates git cmake ninja-build golang && \
@@ -16,14 +16,14 @@ RUN apt-get update && \
 
 FROM ubuntu:noble AS hapce-builder
 
-ENV HAPROXY_BRANCH 3.2
-ENV HAPROXY_MINOR 3.2.26
-ENV HAPROXY_SHA256 760ef35fafc1e05844e73ad07e138e9e96fddbf5de02f606249c027f754827da
-ENV HAPROXY_SRC_URL https://www.haproxy.org/download
+ENV HAPROXY_BRANCH=3.2
+ENV HAPROXY_MINOR=3.2.26
+ENV HAPROXY_SHA256=760ef35fafc1e05844e73ad07e138e9e96fddbf5de02f606249c027f754827da
+ENV HAPROXY_SRC_URL=https://www.haproxy.org/download
 
 COPY --from=awslc-builder /opt/aws-lc /opt/aws-lc
 
-ENV DEBIAN_FRONTEND noninteractive
+ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends procps libssl3t64 zlib1g "libpcre2-*" liblua5.4-0 libatomic1 tar curl socat ca-certificates libjemalloc2 && \
@@ -48,25 +48,25 @@ FROM ubuntu:noble
 
 MAINTAINER Dinko Korunic <dkorunic@haproxy.com>
 
-LABEL Name HAProxy
-LABEL Release Community Edition
-LABEL Vendor HAProxy
-LABEL Version 3.2.26
-LABEL RUN /usr/bin/docker -d IMAGE
+LABEL Name=HAProxy
+LABEL Release="Community Edition"
+LABEL Vendor=HAProxy
+LABEL Version=3.2.26
+LABEL RUN="/usr/bin/docker -d IMAGE"
 
-ENV HAPROXY_BRANCH 3.2
-ENV HAPROXY_MINOR 3.2.26
-ENV HAPROXY_SHA256 760ef35fafc1e05844e73ad07e138e9e96fddbf5de02f606249c027f754827da
-ENV HAPROXY_SRC_URL https://www.haproxy.org/download
+ENV HAPROXY_BRANCH=3.2
+ENV HAPROXY_MINOR=3.2.26
+ENV HAPROXY_SHA256=760ef35fafc1e05844e73ad07e138e9e96fddbf5de02f606249c027f754827da
+ENV HAPROXY_SRC_URL=https://www.haproxy.org/download
 
-ENV HAPROXY_UID haproxy
-ENV HAPROXY_GID haproxy
+ENV HAPROXY_UID=haproxy
+ENV HAPROXY_GID=haproxy
 
-ENV DATAPLANE_MINOR 3.2.20
-ENV DATAPLANE_CHECKSUMS_SHA256 38e6669ab4f9948976b9f60bb66db6f2c67f395c4763eeb1443f3ce9bde388e5
-ENV DATAPLANE_URL https://github.com/haproxytech/dataplaneapi/releases/download
+ENV DATAPLANE_MINOR=3.2.20
+ENV DATAPLANE_CHECKSUMS_SHA256=38e6669ab4f9948976b9f60bb66db6f2c67f395c4763eeb1443f3ce9bde388e5
+ENV DATAPLANE_URL=https://github.com/haproxytech/dataplaneapi/releases/download
 
-ENV DEBIAN_FRONTEND noninteractive
+ENV DEBIAN_FRONTEND=noninteractive
 
 ARG TARGETPLATFORM
 

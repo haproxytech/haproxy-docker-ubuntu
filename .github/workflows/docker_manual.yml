@@ -65,7 +65,7 @@ jobs:
         id: env
         run: |
           echo "BUILD_BRANCH=$(echo ${{ matrix.branch }})" >> $GITHUB_ENV
-          echo "BUILD_VER=$(awk '/^ENV HAPROXY_MINOR/ {print $NF; exit}' ${{ matrix.branch }}/Dockerfile)" >> $GITHUB_ENV
+          echo "BUILD_VER=$(awk -F= '/^ENV HAPROXY_MINOR=/ {print $2; exit}' ${{ matrix.branch }}/Dockerfile)" >> $GITHUB_ENV
           echo "BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_ENV
           echo "GIT_SHA=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_ENV
           echo "GIT_REF=$(git symbolic-ref -q --short HEAD || git describe --tags --exact-match)" >> $GITHUB_ENV

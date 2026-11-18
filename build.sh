@@ -121,10 +121,10 @@ for i in $HAPROXY_BRANCHES; do
 
 	DOCKERFILE="$i/Dockerfile"
 	DOCKERFILE_API="$i/Dockerfile.api"
-	HAPROXY_MINOR_OLD=$(awk '/^ENV HAPROXY_MINOR/ {print $NF; exit}' "$DOCKERFILE")
-	HAPROXY_SHA256_OLD=$(awk '/^ENV HAPROXY_SHA256/ {print $NF; exit}' "$DOCKERFILE")
-	DATAPLANE_MINOR_OLD=$(awk '/^ENV DATAPLANE_MINOR/ {print $NF; exit}' "$DOCKERFILE")
-	DATAPLANE_V2_MINOR_OLD=$(awk '/^ENV DATAPLANE_V2_MINOR/ {print $NF; exit}' "$DOCKERFILE")
+	HAPROXY_MINOR_OLD=$(awk -F= '/^ENV HAPROXY_MINOR=/ {print $2; exit}' "$DOCKERFILE")
+	HAPROXY_SHA256_OLD=$(awk -F= '/^ENV HAPROXY_SHA256=/ {print $2; exit}' "$DOCKERFILE")
+	DATAPLANE_MINOR_OLD=$(awk -F= '/^ENV DATAPLANE_MINOR=/ {print $2; exit}' "$DOCKERFILE")
+	DATAPLANE_V2_MINOR_OLD=$(awk -F= '/^ENV DATAPLANE_V2_MINOR=/ {print $2; exit}' "$DOCKERFILE")
 	GOPHERD_VERSION_OLD=""
 	if [ -f "$DOCKERFILE_API" ]; then
 		GOPHERD_VERSION_OLD=$(awk -F= '/^ARG GOPHERD_VERSION=/ {print $2; exit}' "$DOCKERFILE_API")
@@ -143,10 +143,10 @@ for i in $HAPROXY_BRANCHES; do
 		continue
 	fi
 
-	HAPROXY_MINOR=$(awk '/^ENV HAPROXY_MINOR/ {print $NF; exit}' "$DOCKERFILE")
-	HAPROXY_SHA256=$(awk '/^ENV HAPROXY_SHA256/ {print $NF; exit}' "$DOCKERFILE")
-	DATAPLANE_MINOR=$(awk '/^ENV DATAPLANE_MINOR/ {print $NF; exit}' "$DOCKERFILE")
-	DATAPLANE_V2_MINOR=$(awk '/^ENV DATAPLANE_V2_MINOR/ {print $NF; exit}' "$DOCKERFILE")
+	HAPROXY_MINOR=$(awk -F= '/^ENV HAPROXY_MINOR=/ {print $2; exit}' "$DOCKERFILE")
+	HAPROXY_SHA256=$(awk -F= '/^ENV HAPROXY_SHA256=/ {print $2; exit}' "$DOCKERFILE")
+	DATAPLANE_MINOR=$(awk -F= '/^ENV DATAPLANE_MINOR=/ {print $2; exit}' "$DOCKERFILE")
+	DATAPLANE_V2_MINOR=$(awk -F= '/^ENV DATAPLANE_V2_MINOR=/ {print $2; exit}' "$DOCKERFILE")
 	GOPHERD_VERSION=""
 	if [ -f "$DOCKERFILE_API" ]; then
 		GOPHERD_VERSION=$(awk -F= '/^ARG GOPHERD_VERSION=/ {print $2; exit}' "$DOCKERFILE_API")
@@ -267,7 +267,7 @@ else
 			[ -n "$s6" ] && tags="$tags, \`s6-latest\`"
 		fi
 		echo -e "-\t[$tags]($HAPROXY_GITHUB_URL/$short/Dockerfile)" >>README.md
-	done < <(awk '/^ENV HAPROXY_MINOR/ {print $NF}' ./*/Dockerfile | sort -u -r -V)
+	done < <(awk -F= '/^ENV HAPROXY_MINOR=/ {print $2}' ./*/Dockerfile | sort -u -r -V)
 	echo >>README.md
 	cat README_short.md >>README.md
 

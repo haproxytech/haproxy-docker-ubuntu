@@ -1,8 +1,8 @@
 FROM golang:alpine AS builder
 
-ENV DATAPLANE_MINOR 3.4.7
-ENV DATAPLANE_V2_MINOR 2.9.32
-ENV DATAPLANE_URL https://github.com/haproxytech/dataplaneapi.git
+ENV DATAPLANE_MINOR=3.4.7
+ENV DATAPLANE_V2_MINOR=2.9.32
+ENV DATAPLANE_URL=https://github.com/haproxytech/dataplaneapi.git
 
 RUN apk add --no-cache ca-certificates git make && \
     git clone "${DATAPLANE_URL}" "${GOPATH}/src/github.com/haproxytech/dataplaneapi" && \
@@ -17,21 +17,21 @@ FROM ubuntu:noble
 
 MAINTAINER Dinko Korunic <dkorunic@haproxy.com>
 
-LABEL Name HAProxy
-LABEL Release Community Edition
-LABEL Vendor HAProxy
-LABEL Version 2.8.31
-LABEL RUN /usr/bin/docker -d IMAGE
+LABEL Name=HAProxy
+LABEL Release="Community Edition"
+LABEL Vendor=HAProxy
+LABEL Version=2.8.31
+LABEL RUN="/usr/bin/docker -d IMAGE"
 
-ENV HAPROXY_BRANCH 2.8
-ENV HAPROXY_MINOR 2.8.31
-ENV HAPROXY_SHA256 8f2dd09cfdfe42bdc982c8615e7acb858e1815b10f296dfe5560e7f314dc6c80
-ENV HAPROXY_SRC_URL https://www.haproxy.org/download
+ENV HAPROXY_BRANCH=2.8
+ENV HAPROXY_MINOR=2.8.31
+ENV HAPROXY_SHA256=8f2dd09cfdfe42bdc982c8615e7acb858e1815b10f296dfe5560e7f314dc6c80
+ENV HAPROXY_SRC_URL=https://www.haproxy.org/download
 
-ENV HAPROXY_UID haproxy
-ENV HAPROXY_GID haproxy
+ENV HAPROXY_UID=haproxy
+ENV HAPROXY_GID=haproxy
 
-ENV DEBIAN_FRONTEND noninteractive
+ENV DEBIAN_FRONTEND=noninteractive
 
 COPY --from=builder /dataplaneapi /usr/local/bin/dataplaneapi
 COPY --from=builder /dataplaneapi-v2 /usr/local/bin/dataplaneapi-v2
