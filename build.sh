@@ -27,8 +27,11 @@ for arg in "$@"; do
 	esac
 done
 
-if [ -z "$HAPROXY_CURRENT_BRANCH" ]; then
-	echo "Cannot read stable branch from STABLE_BRANCH"
+# A stray space or CR, or a branch without a directory, would match no
+# branch here or in the image tagging workflow, and latest tags would
+# silently stop moving
+if ! [[ "$HAPROXY_CURRENT_BRANCH" =~ ^[0-9]+\.[0-9]+$ ]] || ! [ -f "$HAPROXY_CURRENT_BRANCH/Dockerfile" ]; then
+	printf 'STABLE_BRANCH does not name a branch directory: %q\n' "$HAPROXY_CURRENT_BRANCH"
 	exit 1
 fi
 
