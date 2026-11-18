@@ -89,30 +89,49 @@ is_downgrade() {
 }
 
 push_release() {
-	local tag="$1" remote_ref remote_head
+	local tag="$1" remote_refs remote_head remote_tag
 
-	# Check first that the push can succeed: deleting the old tag and then
-	# failing would leave the release without a tag, and image tagging relies
-	# on the tags to tell which release of a branch is the newest. Read the ref
-	# on its own: in a pipeline a failed ls-remote would go unnoticed and skip
-	# the check
-	remote_ref=$(git ls-remote origin "refs/heads/$GIT_BRANCH") ||
+	# Read the refs on their own: in a pipeline a failed ls-remote would go
+	# unnoticed and skip the checks
+	remote_refs=$(git ls-remote origin "refs/heads/$GIT_BRANCH" "refs/tags/$tag") ||
 		{
-			echo "Cannot read origin/$GIT_BRANCH"
+			echo "Cannot read origin/$GIT_BRANCH and tag $tag"
 			return 1
 		}
-	remote_head=$(echo "$remote_ref" | cut -f1)
+	remote_head=$(awk -v ref="refs/heads/$GIT_BRANCH" '$2 == ref {print $1}' <<<"$remote_refs")
+	remote_tag=$(awk -v ref="refs/tags/$tag" '$2 == ref {print $1}' <<<"$remote_refs")
 	if [ -n "$remote_head" ] && ! git merge-base --is-ancestor "$remote_head" HEAD 2>/dev/null; then
 		echo "origin/$GIT_BRANCH has new commits, not pushing $tag"
 		return 1
 	fi
 
 	git tag -f "$tag"
-	# Recreate rather than move an existing tag, so the push always triggers a build
-	git push origin ":refs/tags/$tag" 2>/dev/null || true
-	# Push the commit and its tag together, one tag per push: GitHub does not
-	# trigger workflows when more than three tags are pushed at once
-	git push --atomic origin HEAD "refs/tags/$tag" ||
+
+	# Pushing a tag to the commit it is already on changes nothing and
+	# triggers no build, as for a forced rebuild without new commits: delete
+	# and recreate it instead. It is put back if the push fails, so that the
+	# release keeps its tag: image tagging relies on the tags to tell which
+	# release of a branch is the newest
+	if [ "$remote_tag" = "$(git rev-parse HEAD)" ]; then
+		git push origin ":refs/tags/$tag" ||
+			{
+				echo "Failure deleting $tag to recreate it"
+				return 1
+			}
+		if ! git push --atomic origin HEAD "refs/tags/$tag"; then
+			echo "Failure pushing $tag"
+			git push origin "refs/tags/$tag" ||
+				echo "Tag $tag was deleted on origin and could not be restored"
+			return 1
+		fi
+		return 0
+	fi
+
+	# Push the commit and the new or moved tag together, so that a failed push
+	# changes neither, one tag per push: GitHub does not trigger workflows
+	# when more than three tags are pushed at once. The lease rejects the push
+	# when the tag changed on origin since it was read above
+	git push --atomic --force-with-lease="refs/tags/$tag:$remote_tag" origin HEAD "refs/tags/$tag" ||
 		{
 			echo "Failure pushing $tag"
 			return 1
