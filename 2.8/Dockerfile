@@ -15,7 +15,7 @@ RUN apk add --no-cache ca-certificates git make && \
 
 FROM ubuntu:noble
 
-MAINTAINER Dinko Korunic <dkorunic@haproxy.com>
+LABEL maintainer="Dinko Korunic <dkorunic@haproxy.com>"
 
 LABEL Name=HAProxy
 LABEL Release="Community Edition"
