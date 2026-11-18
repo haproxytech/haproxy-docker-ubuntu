@@ -112,12 +112,67 @@ rewrite() {
 	fi
 }
 
+# Print the lines of file $2 that set $1, in whatever format: a line that
+# the rewrites do not match has to be caught by verify_pin, not skipped
+pin_lines() {
+	grep -E "^[[:space:]]*(ENV|LABEL|ARG)[[:space:]]+$1([[:space:]=]|\$)" "$2" || true
+}
+
+# Succeeds when the Dockerfile or the Dockerfile.api sets $1
+has_pin() {
+	local dockerfile
+	for dockerfile in "${DOCKERFILE}" "${DOCKERFILE_API}"; do
+		if [ -f "${dockerfile}" ] && [ -n "$(pin_lines "$1" "${dockerfile}")" ]; then
+			return 0
+		fi
+	done
+	return 1
+}
+
+# Fail unless every line that sets $1 is exactly $2. sed leaves a line it
+# does not match as it was, which would keep that image on the old version
+# without any error, and build.sh only reads the Dockerfile: the s6 image
+# would fall behind unnoticed. A key that the Dockerfile sets has to be in
+# the Dockerfile.api too, as both are built from the same release
+verify_pin() {
+	local key="$1" expected="$2" dockerfile lines found=""
+	for dockerfile in "${DOCKERFILE}" "${DOCKERFILE_API}"; do
+		if ! [ -f "${dockerfile}" ]; then
+			continue
+		fi
+		lines=$(pin_lines "${key}" "${dockerfile}")
+		if [ -z "${lines}" ]; then
+			if [ -n "${found}" ]; then
+				echo "Cannot find ${key} in ${dockerfile}"
+				exit 1
+			fi
+			continue
+		fi
+		found="yes"
+		if grep -qvxF -- "${expected}" <<<"${lines}"; then
+			echo "Cannot pin '${expected}' in ${dockerfile}, it has:"
+			echo "${lines}"
+			exit 1
+		fi
+	done
+	if [ -z "${found}" ]; then
+		echo "Cannot find ${key} in ${DOCKERFILE}"
+		exit 1
+	fi
+}
+
 rewrite -e "s!^(ENV HAPROXY_SRC_URL)=.*!\1=${HAPROXY_SRC_URL}!
             s!^(ENV HAPROXY_BRANCH)=.*!\1=${HAPROXY_BRANCH}!
             s!^(ENV HAPROXY_MINOR)=.*!\1=${HAPROXY_MINOR}!
             s!^(LABEL Version)=.*!\1=${HAPROXY_MINOR}!
             s!^(ENV HAPROXY_SHA256)=.*!\1=${HAPROXY_SHA256}!" \
 	-e 's!/src/(devel/)?(haproxy-\$\{HAPROXY_MINOR\}\.tar\.gz)!/'"${HAPROXY_SRC_DIR}"'/\2!'
+
+verify_pin HAPROXY_SRC_URL "ENV HAPROXY_SRC_URL=${HAPROXY_SRC_URL}"
+verify_pin HAPROXY_BRANCH "ENV HAPROXY_BRANCH=${HAPROXY_BRANCH}"
+verify_pin HAPROXY_MINOR "ENV HAPROXY_MINOR=${HAPROXY_MINOR}"
+verify_pin Version "LABEL Version=${HAPROXY_MINOR}"
+verify_pin HAPROXY_SHA256 "ENV HAPROXY_SHA256=${HAPROXY_SHA256}"
 
 # The tarball moves from src/devel/ to src/ with a branch's first stable
 # release: the Dockerfiles have to download it from where it is now
@@ -248,7 +303,7 @@ update_dataplane() {
 		exit 1
 	fi
 
-	if [ -z "${DATAPLANE_V2_MINOR}" ] && grep -q "^ENV DATAPLANE_V2_MINOR=" "${DOCKERFILE}"; then
+	if [ -z "${DATAPLANE_V2_MINOR}" ] && has_pin DATAPLANE_V2_MINOR; then
 		echo "Could not identify latest Dataplane API v2 release"
 		exit 1
 	fi
@@ -261,7 +316,7 @@ update_dataplane() {
 	# Only for Dockerfiles that download a prebuilt Dataplane API; 2.x images
 	# build it from source
 	DATAPLANE_CHECKSUMS_SHA256=""
-	if grep -q "^ENV DATAPLANE_CHECKSUMS_SHA256=" "${DOCKERFILE}"; then
+	if has_pin DATAPLANE_CHECKSUMS_SHA256; then
 		pin_checksums dataplaneapi "${DATAPLANE_MINOR}" "${old}" "${checksums_old}"
 		DATAPLANE_MINOR="${PIN_VERSION}"
 		DATAPLANE_CHECKSUMS_SHA256="${CHECKSUMS_SHA256}"
@@ -270,13 +325,21 @@ update_dataplane() {
 	rewrite -e "s!^(ENV DATAPLANE_MINOR)=.*!\1=${DATAPLANE_MINOR}!
 	            s!^(ENV DATAPLANE_V2_MINOR)=.*!\1=${DATAPLANE_V2_MINOR}!
 	            s!^(ENV DATAPLANE_CHECKSUMS_SHA256)=.*!\1=${DATAPLANE_CHECKSUMS_SHA256}!"
+
+	verify_pin DATAPLANE_MINOR "ENV DATAPLANE_MINOR=${DATAPLANE_MINOR}"
+	if has_pin DATAPLANE_V2_MINOR; then
+		verify_pin DATAPLANE_V2_MINOR "ENV DATAPLANE_V2_MINOR=${DATAPLANE_V2_MINOR}"
+	fi
+	if [ -n "${DATAPLANE_CHECKSUMS_SHA256}" ]; then
+		verify_pin DATAPLANE_CHECKSUMS_SHA256 "ENV DATAPLANE_CHECKSUMS_SHA256=${DATAPLANE_CHECKSUMS_SHA256}"
+	fi
 }
 
 # gopherd only ships in the s6 images (Dockerfile.api). Stay on the pinned
 # major version: a new major can change the gopherd.yml format
 update_gopherd() {
 	local old checksums_old
-	if ! [ -f "${DOCKERFILE_API}" ] || ! grep -q "^ARG GOPHERD_VERSION=" "${DOCKERFILE_API}"; then
+	if ! [ -f "${DOCKERFILE_API}" ] || ! has_pin GOPHERD_VERSION; then
 		return 0
 	fi
 	old=$(awk -F= '/^ARG GOPHERD_VERSION=/ {print $2; exit}' "${DOCKERFILE_API}")
@@ -296,14 +359,25 @@ update_gopherd() {
 
 	rewrite -e "s!^(ARG GOPHERD_VERSION)=.*!\1=${PIN_VERSION}!
 	            s!^(ARG GOPHERD_CHECKSUMS_SHA256)=.*!\1=${CHECKSUMS_SHA256}!"
+
+	verify_pin GOPHERD_VERSION "ARG GOPHERD_VERSION=${PIN_VERSION}"
+	verify_pin GOPHERD_CHECKSUMS_SHA256 "ARG GOPHERD_CHECKSUMS_SHA256=${CHECKSUMS_SHA256}"
 }
 
 # Run update step $2 for $1 in a subshell, where set -e still applies and
 # stops only that step: its pin stays as it was, and the HAProxy update above
-# still goes out
+# still goes out. A step that fails after its rewrite, in verify_pin, could
+# leave the Dockerfile and the Dockerfile.api on different versions: both
+# are put back as they were before the step
 FAILED_PARTS=""
 run_part() {
-	local name="$1" step="$2" status
+	local name="$1" step="$2" status dockerfile
+	for dockerfile in "${DOCKERFILE}" "${DOCKERFILE_API}"; do
+		rm -f "${TMP_DIR}/${dockerfile}.orig"
+		if [ -f "${dockerfile}" ]; then
+			cp "${dockerfile}" "${TMP_DIR}/${dockerfile}.orig"
+		fi
+	done
 	set +e
 	(
 		set -e
@@ -312,6 +386,11 @@ run_part() {
 	status=$?
 	set -e
 	if [ "${status}" -ne 0 ]; then
+		for dockerfile in "${DOCKERFILE}" "${DOCKERFILE_API}"; do
+			if [ -f "${TMP_DIR}/${dockerfile}.orig" ]; then
+				cp "${TMP_DIR}/${dockerfile}.orig" "${dockerfile}"
+			fi
+		done
 		echo "Could not update ${name}, keeping its current pin"
 		FAILED_PARTS="${FAILED_PARTS} ${name}"
 	fi
