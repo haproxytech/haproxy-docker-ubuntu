@@ -1,6 +1,6 @@
 # Supported tags and respective `Dockerfile` links
 
--	[`3.5-dev13`, `s6-3.5-dev13`, `3.5`, `s6-3.5`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/main/3.5/Dockerfile)
+-	[`3.5-dev14`, `s6-3.5-dev14`, `3.5`, `s6-3.5`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/main/3.5/Dockerfile)
 -	[`3.4.8`, `s6-3.4.8`, `3.4`, `s6-3.4`, `latest`, `s6-latest`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/main/3.4/Dockerfile)
 -	[`3.3.18`, `s6-3.3.18`, `3.3`, `s6-3.3`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/main/3.3/Dockerfile)
 -	[`3.2.27`, `s6-3.2.27`, `3.2`, `s6-3.2`](https://github.com/haproxytech/haproxy-docker-ubuntu/blob/main/3.2/Dockerfile)
